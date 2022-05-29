@@ -1,7 +1,7 @@
 import unittest
 from unittest import TestCase
 
-from scripts.extract_speakers import Speaker, extract_speakers
+from src.concall_tools.extract_speakers import Speaker, extract_speakers
 
 
 class ExtractionTestCases(TestCase):
