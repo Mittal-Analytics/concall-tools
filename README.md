@@ -13,4 +13,7 @@ pip install concall-tool
 ```bash
 python3 -m venv .venv
 pip install -r requirements/requirements-dev.txt
+
+# run tests
+python -m unittest
 ```

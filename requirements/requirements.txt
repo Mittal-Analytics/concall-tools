@@ -16,6 +16,8 @@ joblib==1.1.0
     # via nltk
 nltk==3.7
     # via -r requirements/requirements.in
+numpy==1.22.4
+    # via -r requirements/requirements.in
 pdfminer-six==20220524
     # via -r requirements/requirements.in
 pdftotext==2.2.2
