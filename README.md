@@ -20,7 +20,7 @@ extract_speakers('company-transcript.pdf')
 
 ```bash
 python3 -m venv .venv
-pip install -r requirements/requirements-dev.txt
+python -m pip install -e .
 
 # run tests
 python -m unittest

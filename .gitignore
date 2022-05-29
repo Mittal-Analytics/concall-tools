@@ -19,3 +19,4 @@ _direnv_hook
 
 docs/_build
 .venv
+concall_tools.egg-info
