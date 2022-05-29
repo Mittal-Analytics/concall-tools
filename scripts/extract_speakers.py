@@ -75,16 +75,6 @@ def _extract_relations(named_tags):
     return speaker_firm
 
 
-def _make_corrections(text):
-    """
-    returns clean text with minor corrections
-
-    the raw text sometimes has errors which breaks the POS tagging
-    """
-    text = text.replace(". from", " from")
-    return text
-
-
 def extract_speakers(pdf_name):
     pages = get_text(pdf_name)
     text = ""
@@ -94,8 +84,6 @@ def extract_speakers(pdf_name):
         if word_count < 150 or i == len(pages) - 1:
             continue
         text += "\n" + page
-
-    text = _make_corrections(text)
 
     # tokenize the text and recognize named entities
     named_tags = nltk.ne_chunk(nltk.pos_tag(nltk.word_tokenize(text)))
