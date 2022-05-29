@@ -25,3 +25,10 @@ python -m pip install -e .
 # run tests
 python -m unittest
 ```
+
+For publishing:
+
+```bash
+bumpver update --minor
+twine upload dist/*
+```
