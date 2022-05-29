@@ -1,0 +1,63 @@
+name: Automated Testing
+
+on: [push]
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run_tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python version
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+
+      - name: Checking python version
+        run: python --version
+
+      - name: Install pre dependencies
+        run: |
+          sudo apt-get update
+          # required by pdftotext
+          sudo apt install -y build-essential libpoppler-cpp-dev pkg-config python3-dev
+
+      - name: Check for cache of Pipfile downloads
+        id: cache-pip-downloads
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-${{ hashFiles('**/requirements/requirements-dev.txt') }}-v3
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Check for cache of Pipfile dependencies
+        id: cache-pip
+        uses: actions/cache@v2
+        with:
+          path: ${{ env.pythonLocation }}
+          key: ${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('**/requirements/requirements-dev.txt') }}-v3
+          restore-keys: |
+            ${{ env.pythonLocation }}-${{ runner.os }}-pip-
+
+      - name: Install dependencies from requirements
+        run: |
+          pip install --upgrade pip
+          pip install wheel
+          pip install -r requirements/requirements-dev.txt
+
+      - name: Install nltk data
+        run: |
+          sudo mkdir -p ${NLTK_DATA}
+          python -m nltk.downloader brown punkt wordnet averaged_perceptron_tagger
+        env:
+          NLTK_DATA: /usr/share/nltk_data
+
+      - name: Run tests
+        run: |
+          python -Wa -m unittest
