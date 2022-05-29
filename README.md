@@ -5,7 +5,15 @@ Collection of scripts to extract information from concall transcripts.
 ## Installation
 
 ```bash
-pip install concall-tool
+pip install concall-tools
+```
+
+## Usage
+
+```python
+from concall_tools import extract_speakers
+
+extract_speakers('company-transcript.pdf')
 ```
 
 ## Development

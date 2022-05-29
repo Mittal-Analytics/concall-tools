@@ -1,5 +1,4 @@
 pymupdf==1.19.6
-pdfminer.six==20220524
 nltk==3.7
 numpy==1.22.4
 
