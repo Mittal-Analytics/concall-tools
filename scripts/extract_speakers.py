@@ -1,9 +1,9 @@
 import re
 from collections import namedtuple
 
+import fitz
 import nltk
 
-from .pdf_utils import get_text
 from .stop_words import STOP_WORDS
 
 Speaker = namedtuple("Speaker", ["name", "firm"])
@@ -76,14 +76,15 @@ def _extract_relations(named_tags):
 
 
 def extract_speakers(pdf_name):
-    pages = get_text(pdf_name)
+    doc = fitz.open(pdf_name)
     text = ""
-    for i, page in enumerate(pages):
+    for i, page in enumerate(doc):
+        page_text = page.get_text("text")
         # a transcript page would have at-least 100 words
-        word_count = len(page.split())
-        if word_count < 150 or i == len(pages) - 1:
+        word_count = len(page_text.split())
+        if word_count < 150 and (i != len(doc) - 1):
             continue
-        text += "\n" + page
+        text += "\n" + page_text
 
     # tokenize the text and recognize named entities
     named_tags = nltk.ne_chunk(nltk.pos_tag(nltk.word_tokenize(text)))

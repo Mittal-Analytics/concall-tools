@@ -24,6 +24,8 @@ pdftotext==2.2.2
     # via -r requirements/requirements.in
 pycparser==2.21
     # via cffi
+pymupdf==1.19.6
+    # via -r requirements/requirements.in
 regex==2022.4.24
     # via nltk
 tqdm==4.64.0
