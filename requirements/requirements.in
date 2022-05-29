@@ -1,0 +1,5 @@
+pdftotext==2.2.2
+pdfminer.six==20220524
+nltk==3.7
+# Run the following after updating this file:
+#    pip-compile --output-file=requirements/requirements.txt requirements/requirements.in

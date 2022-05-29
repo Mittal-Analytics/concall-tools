@@ -1,0 +1,9 @@
+-r requirements.txt
+
+# for generation of requirements
+pip-tools==6.6.2
+
+# for linting
+flake8==4.0.1
+black==22.3.0
+pre-commit==2.19.0

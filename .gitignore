@@ -1,0 +1,21 @@
+# Python bytecode:
+*.pyc
+*.pyo
+
+logs/*
+!.gitkeep
+node_modules
+tmp
+.DS_Store
+
+# Editor temp files:
+_direnv_hook
+.vscode
+.idea
+*.swp
+*~
+.env
+.envrc
+
+docs/_build
+.venv
