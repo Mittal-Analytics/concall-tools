@@ -35,35 +35,54 @@ def _get_fingerprint(name):
 
 
 def _extract_name(subjtext):
+    """
+    the extract_rels function returns a string with the POS tags in it
+    this function extracts the name from the string
+    """
     return " ".join(word.rsplit("/", 1)[0] for word in subjtext.split(" "))
+
+
+def _get_relations(named_tags, subjclass, objclass):
+    """
+    Extract relations between two named entities
+    """
+    FROM = re.compile(r".*\bfrom\b.*")
+    relations = nltk.sem.extract_rels(
+        subjclass, objclass, named_tags, pattern=FROM
+    )
+    speaker_firm = {}
+    for relation in relations:
+        speaker = _get_fingerprint(_extract_name(relation["subjtext"]))
+        firm = _extract_name(relation["objtext"])
+        if speaker not in speaker_firm:
+            speaker_firm[speaker] = firm
+    return speaker_firm
 
 
 def _extract_relations(named_tags):
     """
     Extract name fo firm from which the speaker is associated
     """
-    # extract speaker names and firms
-    speaker_firm = {}
-    FROM = re.compile(r".*\bfrom\b.*")
-    relations = nltk.sem.extract_rels(
-        "PERSON", "ORGANIZATION", named_tags, pattern=FROM
-    )
-    for relation in relations:
-        speaker = _get_fingerprint(_extract_name(relation["subjtext"]))
-        firm = _extract_name(relation["objtext"])
+    # Relationship are in form of PERSON from ORGANIZATION
+    speaker_firm = _get_relations(named_tags, "PERSON", "ORGANIZATION")
+    # sometimes, the named entity tags ORGANIZATION as PERSON
+    # thus try PERSON from PERSON if not available
+    for speaker, firm in _get_relations(
+        named_tags, "PERSON", "PERSON"
+    ).items():
         if speaker not in speaker_firm:
             speaker_firm[speaker] = firm
-    # sometimes the relationship is in form of PERSON PERSON
-    relations = nltk.sem.extract_rels(
-        "PERSON", "PERSON", named_tags, pattern=FROM
-    )
-    for relation in relations:
-        speaker = _get_fingerprint(_extract_name(relation["subjtext"]))
-        firm = _extract_name(relation["objtext"])
-        if speaker not in speaker_firm:
-            speaker_firm[speaker] = firm
-    print(speaker_firm)
     return speaker_firm
+
+
+def _make_corrections(text):
+    """
+    returns clean text with minor corrections
+
+    the raw text sometimes has errors which breaks the POS tagging
+    """
+    text = text.replace(". from", " from")
+    return text
 
 
 def extract_speakers(pdf_name):
@@ -74,7 +93,9 @@ def extract_speakers(pdf_name):
         word_count = len(page.split())
         if word_count < 150 or i == len(pages) - 1:
             continue
-        text += "\n\n" + page
+        text += "\n" + page
+
+    text = _make_corrections(text)
 
     # tokenize the text and recognize named entities
     named_tags = nltk.ne_chunk(nltk.pos_tag(nltk.word_tokenize(text)))
