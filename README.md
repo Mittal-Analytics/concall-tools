@@ -30,5 +30,6 @@ For publishing:
 
 ```bash
 bumpver update --minor
+python -m build
 twine upload dist/*
 ```
