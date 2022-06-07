@@ -93,10 +93,13 @@ def _manual_chunk(named_tags):
         (w, t) for w, t, _iob in nltk.chunk.util.tree2conlltags(named_tags)
     ]
     pos_tags = [
-        ("from", "FROM") if w_t == ("from", "IN") else w_t for w_t in pos_tags
+        ("from", "FROM") if w == "from" else (w, t) for w, t in pos_tags
     ]
 
-    grammar = "REL: {<NN.*>+ <FROM> <NN.*>+}"
+    grammar = """
+        REL: {<JJ>? <NN.*>+ <FROM> <NN.*|IN|CC>{0,5} <.|,>}
+             {<JJ>? <NN.*>+ <FROM> <NN.*>+}
+    """
     cp = nltk.RegexpParser(grammar)
     tree = cp.parse(pos_tags)
     speaker__firm = {}
@@ -104,7 +107,9 @@ def _manual_chunk(named_tags):
         if subtree.label() == "REL":
             split_pos = subtree.leaves().index(("from", "FROM"))
             speaker = " ".join(w for w, t in subtree.leaves()[:split_pos])
-            firm = " ".join(w for w, t in subtree.leaves()[split_pos + 1 :])
+            firm = " ".join(
+                w for w, t in subtree.leaves()[split_pos + 1 :]
+            ).strip(" .,")
             speaker__firm[_get_fingerprint(speaker)] = firm
     return speaker__firm
 
