@@ -39,7 +39,9 @@ def _extract_name(subjtext):
     the extract_rels function returns a string with the POS tags in it
     this function extracts the name from the string
     """
-    return " ".join(word.rsplit("/", 1)[0] for word in subjtext.split(" "))
+    return " ".join(
+        nltk.tag.str2tuple(word)[0] for word in subjtext.split(" ")
+    )
 
 
 def _get_relations(named_tags, subjclass, objclass):
@@ -75,8 +77,19 @@ def _extract_relations(named_tags):
     return speaker_firm
 
 
-def extract_speakers(pdf_name):
-    doc = fitz.open(pdf_name)
+def _print_portion(named_tags, substr):
+    conll_tags = nltk.chunk.util.tree2conlltags(named_tags)
+    all_tokens = [w for w, _t, _iob in conll_tags]
+    look_tokens = nltk.word_tokenize(substr)
+
+    for i in range(len(all_tokens) - len(look_tokens) + 1):
+        portion = all_tokens[i : i + len(look_tokens)]
+        if portion == look_tokens:
+            print("PORTION:", conll_tags[i : i + len(look_tokens)])
+            return
+
+
+def _extract_speakers_two(doc):
     text = ""
     for i, page in enumerate(doc):
         page_text = page.get_text("text")
@@ -103,11 +116,21 @@ def extract_speakers(pdf_name):
                 continue
             if person not in people:
                 people.append(person)
+
     speakers = []
+    lines = nltk.tokenize.sent_tokenize(text)
     for person in people:
-        is_speaker = any(line.startswith(person) for line in text.split("\n"))
-        if is_speaker:
+        speaker_lines = [line for line in lines if line.startswith(person)]
+        if speaker_lines:
+            print("PERSON:", person)
+            _print_portion(named_tags, speaker_lines[0])
             fp = _get_fingerprint(person)
             speaker = Speaker(name=person, firm=speaker_firm.get(fp, None))
             speakers.append(speaker)
+    return speakers
+
+
+def extract_speakers(pdf_name):
+    doc = fitz.open(pdf_name)
+    speakers = _extract_speakers_two(doc)
     return speakers
