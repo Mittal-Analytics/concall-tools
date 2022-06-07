@@ -45,6 +45,20 @@ class ExtractionTestCases(TestCase):
         self.maxDiff = None
         self.assertEqual(speakers, expected)
 
+    def test_extract_speakers_tata_motors(self):
+        pdf = "test_files/tata-motor.pdf"
+        speakers = extract_speakers(pdf)
+        expected = [
+            Speaker(name="Sneha Gavankar", firm=None),
+            Speaker(name="PB Balaji", firm=None),
+            Speaker(name="Adrian Mardell", firm=None),
+            Speaker(name="Girish Wagh", firm=None),
+            Speaker(name="Shailesh Chandra", firm=None),
+            Speaker(name="Thierry Bolloré", firm=None),
+        ]
+        self.maxDiff = None
+        self.assertEqual(speakers, expected)
+
 
 if __name__ == "__main__":
     unittest.main()

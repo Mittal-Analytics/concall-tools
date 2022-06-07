@@ -186,16 +186,28 @@ def _extract_speakers_two(doc):
     return speakers
 
 
+def _get_plain_text_word_count(el):
+    word_count = 0
+    if el.tag != "b":
+        if el.text:
+            word_count += len(el.text.split())
+        for child in el.getchildren():
+            word_count += _get_plain_text_word_count(child)
+    return word_count
+
+
 def _is_text_block_child(el):
     """
     returns true if the element has a following paragraph
     """
     parent = el.getparent()
-    next_parent = parent.getnext()
-    word_count = len(
-        next_parent.text_content().split() + parent.text_content().split()
-    )
-    return word_count >= 8
+    word_count = _get_plain_text_word_count(parent)
+
+    next_block = parent.getnext()
+    if not next_block.text_content().strip():
+        next_block = next_block.getnext()
+    word_count = _get_plain_text_word_count(next_block)
+    return word_count >= 5
 
 
 def _is_name(text):
