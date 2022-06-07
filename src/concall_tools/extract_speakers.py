@@ -88,12 +88,41 @@ def _get_relations(named_tags, subjclass, objclass):
     return speaker_firm
 
 
+def _manual_chunk(named_tags):
+    pos_tags = [
+        (w, t) for w, t, _iob in nltk.chunk.util.tree2conlltags(named_tags)
+    ]
+    pos_tags = [
+        ("from", "FROM") if w_t == ("from", "IN") else w_t for w_t in pos_tags
+    ]
+
+    grammar = "REL: {<NN.*>+ <FROM> <NN.*>+}"
+    cp = nltk.RegexpParser(grammar)
+    tree = cp.parse(pos_tags)
+    speaker__firm = {}
+    for subtree in tree.subtrees():
+        if subtree.label() == "REL":
+            split_pos = subtree.leaves().index(("from", "FROM"))
+            speaker = " ".join(w for w, t in subtree.leaves()[:split_pos])
+            firm = " ".join(w for w, t in subtree.leaves()[split_pos + 1 :])
+            speaker__firm[_get_fingerprint(speaker)] = firm
+    return speaker__firm
+
+
 def _extract_relations(named_tags):
     """
     Extract name fo firm from which the speaker is associated
     """
-    # Relationship are in form of PERSON from ORGANIZATION
-    speaker_firm = _get_relations(named_tags, "PERSON", "ORGANIZATION")
+    # extract all relations in form of: NOUN from NOUN
+    speaker_firm = _manual_chunk(named_tags)
+
+    # try named-entity relations if no manual relation found
+    for speaker, firm in _get_relations(
+        named_tags, "PERSON", "ORGANIZATION"
+    ).items():
+        if speaker not in speaker_firm:
+            speaker_firm[speaker] = firm
+
     # sometimes, the named entity tags ORGANIZATION as PERSON
     # thus try PERSON from PERSON if not available
     for speaker, firm in _get_relations(
