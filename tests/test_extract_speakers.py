@@ -9,6 +9,7 @@ class ExtractionTestCases(TestCase):
         pdf = "test_files/aimco-concall.pdf"
         speakers = extract_speakers(pdf)
         expected = [
+            Speaker(name="Moderator", firm=None),
             Speaker(name="Sayam Pokharna", firm="Investment Lab"),
             Speaker(name="Ashit Dave", firm=None),
             Speaker(name="Navid Virani", firm="Bastion Capital"),
@@ -25,6 +26,7 @@ class ExtractionTestCases(TestCase):
         pdf = "test_files/gpil-concall.pdf"
         speakers = extract_speakers(pdf)
         expected = [
+            Speaker(name="Moderator", firm=None),
             Speaker(name="Ankit Toshniwal", firm="Go India Advisors"),
             Speaker(name="Dinesh Gandhi", firm="GPIL"),
             Speaker(name="Niteen Dharmavat", firm="Aurum Capital"),

@@ -2,11 +2,38 @@ import re
 from collections import namedtuple
 
 import fitz
+import lxml.html
 import nltk
 
 from .stop_words import STOP_WORDS
 
 Speaker = namedtuple("Speaker", ["name", "firm"])
+
+
+def _get_pages(doc):
+    Page = namedtuple("Page", ["page", "number", "text", "word_count"])
+    pages = []
+    for i, page in enumerate(doc):
+        text = page.get_text("text")
+        page = Page(
+            page=page,
+            number=i,
+            text=text,
+            word_count=len(text.split()),
+        )
+        pages.append(page)
+    return pages
+
+
+def _get_main_pages(doc):
+    pages = _get_pages(doc)
+
+    # get median word count
+    word_counts = [page.word_count for page in pages]
+    median = sorted(word_counts)[len(word_counts) // 2]
+    # main pages are pages with at-least half as much text
+    main_pages = [page for page in pages if page.word_count > (median / 2)]
+    return main_pages
 
 
 def _get_fingerprint(name):
@@ -90,14 +117,14 @@ def _print_portion(named_tags, substr):
 
 
 def _extract_speakers_two(doc):
-    text = ""
-    for i, page in enumerate(doc):
-        page_text = page.get_text("text")
-        # a transcript page would have at-least 100 words
-        word_count = len(page_text.split())
-        if word_count < 150 and (i != len(doc) - 1):
-            continue
-        text += "\n" + page_text
+    pages = [page.get_text("text") for page in doc]
+    text = "\n".join(
+        page
+        for i, page in enumerate(pages)
+        # a transcript page would have at-least 150 words
+        # or is last page
+        if len(page.split()) > 150 or i == len(pages) - 1
+    )
 
     # tokenize the text and recognize named entities
     named_tags = nltk.ne_chunk(nltk.pos_tag(nltk.word_tokenize(text)))
@@ -130,7 +157,52 @@ def _extract_speakers_two(doc):
     return speakers
 
 
+def _is_text_block_child(el):
+    """
+    returns true if the element has a following paragraph
+    """
+    parent = el.getparent()
+    next_parent = parent.getnext()
+    word_count = len(
+        next_parent.text_content().split() + parent.text_content().split()
+    )
+    return word_count >= 8
+
+
+def _is_name(text):
+    # remove all non-alphanumeric characters
+    text = re.sub(r"[^a-zA-Z\s]", "", text).strip()
+    return len(text) > 2 and len(text.split()) <= 5
+
+
+def _extract_speakers_in_bold(doc):
+    people = []
+    pages = _get_main_pages(doc)
+    for page in pages:
+        html = page.page.get_text("html")
+        tree = lxml.html.fromstring(html)
+        bolds = tree.cssselect("b")
+        for bold in bolds:
+            text = bold.text_content().strip().strip(":").strip()
+            is_person = text and _is_text_block_child(bold) and _is_name(text)
+            if is_person:
+                people.append(text)
+
+    # get relations
+    text = "\n".join(page.text for page in pages)
+    named_tags = nltk.ne_chunk(nltk.pos_tag(nltk.word_tokenize(text)))
+    speaker_firm = _extract_relations(named_tags)
+
+    speakers = []
+    for person in people:
+        fp = _get_fingerprint(person)
+        speaker = Speaker(name=person, firm=speaker_firm.get(fp, None))
+        if speaker not in speakers:
+            speakers.append(speaker)
+    return speakers
+
+
 def extract_speakers(pdf_name):
     doc = fitz.open(pdf_name)
-    speakers = _extract_speakers_two(doc)
+    speakers = _extract_speakers_in_bold(doc)
     return speakers

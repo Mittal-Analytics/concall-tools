@@ -13,6 +13,8 @@ dependencies = [
     "pymupdf",
     "nltk",
     "numpy",
+    "lxml",
+    "cssselect",
 ]
 requires-python = ">=3.9"
 
