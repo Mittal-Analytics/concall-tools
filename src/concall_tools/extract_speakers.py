@@ -30,7 +30,7 @@ def _get_main_pages(doc):
     word_counts = [page.word_count for page in pages]
     median = sorted(word_counts)[len(word_counts) // 2]
     # main pages are pages with at-least half as much text
-    main_pages = [page for page in pages if page.word_count > (median / 2)]
+    main_pages = [page for page in pages if page.word_count > (median / 3)]
     return main_pages
 
 
@@ -101,8 +101,9 @@ def _manual_chunk(named_tags):
     grammar = """
         FIR: {<JJ>? <NNP.*>+ <IN|CC> <NNP.*> <NN.*>*}
         PER: {<JJ>? <NNP.*>+ <NN.*>*}
-        REL: {<PER> <FROM> <FIR> <.|,>}
-             {<PER> <FROM> <PER>}
+        REL: {<PER> <,>? <FROM> <FIR> <.|,>}
+             {<PER> <,>? <FROM> <PER>}
+             {<PER> <\(> <PER> <\)>}
              {<PER> <,> <PER>}
     """
     cp = nltk.RegexpParser(grammar)
@@ -220,37 +221,59 @@ def _get_text_blocks(text):
     return paragraphs
 
 
+def _cleanup_people(people):
+    is_all_caps = all(w.isupper() for w in people)
+    if is_all_caps:
+        return people
+    return [person for person in people if not person.isupper()]
+
+
 def _extract_speakers_two(doc):
     pages = _get_main_pages(doc)
     text = "\n".join([page.text for page in pages])
 
+    # extract people
+    paragraphs = _get_text_blocks(text)
+    people = []
+    for paragraph in paragraphs:
+        pos_tag = nltk.pos_tag(nltk.word_tokenize(paragraph))
+
+        # a person name is either before a ":"
+        # or is the full line itself
+        lines = paragraph.splitlines()
+        person = lines[0]
+        if ":" in person:
+            person = person.split(":", 1)[0]
+        person = person.strip()
+
+        # tokenize first_line using pos_tag
+        words = nltk.word_tokenize(person)
+        tagged_words = pos_tag[: len(words)]
+
+        is_name = (
+            _is_name(person)
+            and all(
+                t in ["NN", "NNS", "NNP", "NNPS", ".", "JJ"]
+                for w, t in tagged_words
+            )
+            and "NNP" in [t for w, t in tagged_words]
+            # exclude tables and broken text blocks
+            # a conversation would have at-least 4 words per line
+            and len(pos_tag) / len(lines) > 4
+        )
+        if is_name and person not in people:
+            people.append(person)
+    people = _cleanup_people(people)
+
     # tokenize the text and recognize named entities
     named_tags = nltk.ne_chunk(nltk.pos_tag(nltk.word_tokenize(text)))
-
-    # extract all PERSON named entities
-    # by looping over all named entities
-    people = []
-    for entity in named_tags:
-        if isinstance(entity, nltk.tree.Tree) and entity.label() == "PERSON":
-            person = " ".join(leaf[0] for leaf in entity.leaves())
-            if person not in people:
-                people.append(person)
-
-    # loop over sentences
-    # a speakers mention is usually at the start of the sentence
-    paragraphs = _get_text_blocks(text)
     speaker_firm = _extract_relations(named_tags)
+
     speakers = []
     for person in people:
-        speaker_lines = [
-            line for line in paragraphs if line.startswith(person)
-        ]
-        if speaker_lines:
-            print("PERSON:", person)
-            _print_portion(named_tags, speaker_lines[0])
-            fp = _get_fingerprint(person)
-            speaker = Speaker(name=person, firm=speaker_firm.get(fp, None))
-            speakers.append(speaker)
+        fp = _get_fingerprint(person)
+        speaker = Speaker(name=person, firm=speaker_firm.get(fp, None))
+        speakers.append(speaker)
     return speakers
 
 
@@ -296,6 +319,7 @@ def _extract_speakers_in_bold(doc):
             is_person = text and _is_text_block_child(bold) and _is_name(text)
             if is_person:
                 people.append(text)
+    people = _cleanup_people(people)
 
     # get relations
     text = "\n".join(page.text for page in pages)

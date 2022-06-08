@@ -85,16 +85,58 @@ class ExtractionTestCases(TestCase):
         pdf = "test_files/avanti.pdf"
         speakers = extract_speakers(pdf)
         expected = [
+            Speaker(name="C. Ramachandra Rao", firm="Joint Managing Director"),
+            # these two headings are false-positives
+            # because they are in bold, just like names
+            Speaker(name="SHRIMP FEED CONSUMPTION", firm=None),
+            Speaker(name="SHRIMP PROCESSING AND EXPORT", firm=None),
             Speaker(name="Moderator", firm=None),
             Speaker(name="Nitin Awasti", firm="Incread research"),
             Speaker(name="Sri C Ramachandra Rao", firm=None),
+            Speaker(name="Sri Muthyam Reddy", firm=None),
             # Onkar Ghugadare is from Sree Investment
             # But it is missed because of spelling error in Ghugadre
             Speaker(name="Onkar Ghugadare", firm=None),
             Speaker(name="Sri. Alluri Nikhilesh", firm=None),
             Speaker(name="Vinayak Mohta", firm="Stallion Asset"),
             Speaker(name="Depesh Kashyap", firm="Equirus Capital"),
-            Speaker(name="Ayush Mittal", firm="Mittal Analytics"),
+            Speaker(name="Ayush Mittal", firm="Mittal analytics"),
+        ]
+        self.maxDiff = None
+        self.assertEqual(speakers, expected)
+
+    def test_extract_speakers_hdfc(self):
+        pdf = "test_files/hdfc-concall.pdf"
+        speakers = extract_speakers(pdf)
+        expected = [
+            Speaker(name="Moderator", firm=None),
+            Speaker(name="Srinivasan V", firm=None),
+            Speaker(name="Mahrukh Adajania", firm="Edelweiss"),
+            Speaker(name="Rahul Jain", firm="Goldman Sachs"),
+            Speaker(name="Aditya Jain", firm="Citigroup"),
+            Speaker(name="Manish Shukla", firm="Axis Capital"),
+            Speaker(name="Sagar Doshi", firm=None),
+            Speaker(name="Adarsh Parasrampuria", firm="CLSA"),
+            Speaker(name="Saurabh", firm="JP Morgan"),
+        ]
+        self.maxDiff = None
+        self.assertEqual(speakers, expected)
+
+    def test_extract_speakers_asian_paints(self):
+        pdf = "test_files/asian-paints.pdf"
+        speakers = extract_speakers(pdf)
+        expected = [
+            Speaker(name="Arun Nair", firm="Corporate Communications"),
+            Speaker(name="Amit Syngle", firm=None),
+            Speaker(name="Avi Mehta", firm="Macquarie"),
+            Speaker(name="Abneesh Roy", firm="Edelweiss"),
+            Speaker(name="Shirish Pardeshi", firm="Centrum"),
+            Speaker(name="Saumil Mehta", firm="Kotak Life"),
+            Speaker(name="Richard Liu", firm="JM Financial"),
+            Speaker(name="Varun Singh", firm="IDBI Capital"),
+            Speaker(name="Amit Sachdeva", firm="HSBC Securities"),
+            Speaker(name="Percy Panthaki", firm="IIFL Securities"),
+            Speaker(name="Sujay Kamath", firm="Millenium Partners"),
         ]
         self.maxDiff = None
         self.assertEqual(speakers, expected)
