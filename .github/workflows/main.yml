@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ env.pythonLocation }}
-          key: ${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('**/requirements/requirements-dev.txt') }}-v3
+          key: ${{ env.pythonLocation }}-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}-v3
           restore-keys: |
             ${{ env.pythonLocation }}-${{ runner.os }}-pip-
 
@@ -49,7 +49,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install wheel
-          pip install -r requirements/requirements-dev.txt
+          python -m pip install -e .
 
       - name: Install nltk data
         run: |
