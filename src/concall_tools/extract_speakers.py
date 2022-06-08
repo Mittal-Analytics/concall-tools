@@ -30,7 +30,7 @@ def _get_main_pages(doc):
     word_counts = [page.word_count for page in pages]
     median = sorted(word_counts)[len(word_counts) // 2]
     # main pages are pages with at-least half as much text
-    main_pages = [page for page in pages if page.word_count > (median / 2)]
+    main_pages = [page for page in pages if page.word_count > (median / 3)]
     return main_pages
 
 
@@ -208,11 +208,14 @@ def _get_text_blocks(text):
     return paragraphs
 
 
-def _cleanup_people(people):
+def _cleanup_people(text, people):
     is_all_caps = all(w.isupper() for w in people)
-    if is_all_caps:
-        return people
-    return [person for person in people if not person.isupper()]
+    if not is_all_caps:
+        people = [person for person in people if not person.isupper()]
+
+    # any valid person will be there at-least twice in concall
+    people = [person for person in people if text.count(person) > 1]
+    return people
 
 
 def _extract_speakers_two(doc):
@@ -250,7 +253,7 @@ def _extract_speakers_two(doc):
         )
         if is_name and person not in people:
             people.append(person)
-    people = _cleanup_people(people)
+    people = _cleanup_people(text, people)
 
     # tokenize the text and recognize named entities
     named_tags = nltk.ne_chunk(nltk.pos_tag(nltk.word_tokenize(text)))
@@ -304,11 +307,16 @@ def _extract_speakers_in_bold(doc):
         tree = lxml.html.fromstring(html)
         bolds = tree.cssselect("b")
         for bold in bolds:
+            is_first_child = bold.getprevious() is None
+            if not is_first_child:
+                continue
             text = bold.text_content().strip().strip(":").strip()
             is_person = text and _is_text_block_child(bold) and _is_name(text)
             if is_person:
                 people.append(text)
-    people = _cleanup_people(people)
+
+    text = "\n".join([page.text for page in pages])
+    people = _cleanup_people(text, people)
 
     # get relations
     text = "\n".join(page.text for page in pages)

@@ -49,7 +49,6 @@ class ExtractionTestCases(TestCase):
         pdf = "test_files/tata-motor.pdf"
         speakers = extract_speakers(pdf)
         expected = [
-            Speaker(name="Sneha Gavankar", firm=None),
             Speaker(name="PB Balaji", firm="Group CFO"),
             Speaker(name="Adrian Mardell", firm="CFO"),
             Speaker(name="Girish Wagh", firm="Executive Director"),
@@ -122,11 +121,13 @@ class ExtractionTestCases(TestCase):
         pdf = "test_files/asian-paints.pdf"
         speakers = extract_speakers(pdf)
         expected = [
+            Speaker(name="Moderator", firm=None),
             Speaker(name="Arun Nair", firm="Corporate Communications"),
             Speaker(name="Amit Syngle", firm=None),
             Speaker(name="Avi Mehta", firm="Macquarie"),
             Speaker(name="Abneesh Roy", firm="Edelweiss"),
             Speaker(name="Shirish Pardeshi", firm="Centrum"),
+            Speaker(name="Parag Rane", firm="GM-Finance May"),
             Speaker(name="Saumil Mehta", firm="Kotak Life"),
             Speaker(name="Richard Liu", firm="JM Financial"),
             Speaker(name="Varun Singh", firm="IDBI Capital"),
