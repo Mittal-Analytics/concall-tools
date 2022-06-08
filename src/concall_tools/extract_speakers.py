@@ -5,8 +5,6 @@ import fitz
 import lxml.html
 import nltk
 
-from .stop_words import STOP_WORDS
-
 Speaker = namedtuple("Speaker", ["name", "firm"])
 
 
@@ -88,6 +86,10 @@ def _get_relations(named_tags, subjclass, objclass):
     return speaker_firm
 
 
+def _tree2str(tree):
+    return " ".join(w for w, _t in tree.leaves())
+
+
 def _manual_chunk(named_tags):
     pos_tags = [
         (w, t) for w, t, _iob in nltk.chunk.util.tree2conlltags(named_tags)
@@ -97,20 +99,26 @@ def _manual_chunk(named_tags):
     ]
 
     grammar = """
-        REL: {<JJ>? <NN.*>+ <FROM> <NN.*|IN|CC>{0,5} <.|,>}
-             {<JJ>? <NN.*>+ <FROM> <NN.*>+}
+        FIR: {<JJ>? <NNP.*>+ <IN|CC> <NNP.*> <NN.*>*}
+        PER: {<JJ>? <NNP.*>+ <NN.*>*}
+        REL: {<PER> <FROM> <FIR> <.|,>}
+             {<PER> <FROM> <PER>}
+             {<PER> <,> <PER>}
     """
     cp = nltk.RegexpParser(grammar)
     tree = cp.parse(pos_tags)
     speaker__firm = {}
     for subtree in tree.subtrees():
         if subtree.label() == "REL":
-            split_pos = subtree.leaves().index(("from", "FROM"))
-            speaker = " ".join(w for w, t in subtree.leaves()[:split_pos])
-            firm = " ".join(
-                w for w, t in subtree.leaves()[split_pos + 1 :]
-            ).strip(" .,")
-            speaker__firm[_get_fingerprint(speaker)] = firm
+            entities = [
+                _tree2str(t)
+                for t in subtree.subtrees()
+                if t.label() in ["PER", "FIR"]
+            ]
+            speaker, firm = entities
+            key = _get_fingerprint(speaker)
+            if key not in speaker__firm:
+                speaker__firm[key] = firm
     return speaker__firm
 
 
@@ -150,38 +158,93 @@ def _print_portion(named_tags, substr):
             return
 
 
+def _assert_same(lines, sent_lines, row_pos, col_pos):
+    for sent_line in sent_lines[:-1]:
+        if not lines[row_pos] == sent_line:
+            import ipdb
+
+            ipdb.set_trace()
+        assert lines[row_pos] == sent_line
+        row_pos += 1
+        col_pos = 0
+    if sent_lines:
+        last_sent_line = sent_lines[-1]
+        compared_line = lines[row_pos]
+        if not compared_line.startswith(last_sent_line):
+            import ipdb
+
+            ipdb.set_trace()
+        assert compared_line.startswith(last_sent_line)
+        row_pos += 1
+        col_pos = len(last_sent_line)
+    return row_pos, col_pos
+
+
+def _get_text_blocks(text):
+    """
+    Returns text blocks (paragraphs)
+
+    Algorithm:
+    - tokenize text into sentences
+    - also split text into lines
+    - it is a paragraph if the sentence is also a new line
+    """
+    text = text.replace("Pvt.", "Pvt")
+    sentences = nltk.sent_tokenize(text)
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    row_pos = 0
+    col_pos = 0
+    paragraphs = []
+    buffer = []
+    while sentences:
+        sentence = sentences.pop(0)
+        sent_lines = [l.strip() for l in sentence.splitlines() if l.strip()]
+        try:
+            assert lines[row_pos][col_pos:].strip().startswith(sent_lines[0])
+        except:
+            import ipdb
+
+            ipdb.set_trace()
+        col_pos = lines[row_pos].index(sent_lines[0], col_pos) + len(
+            sent_lines[0]
+        )
+        row_pos, col_pos = _assert_same(
+            lines[1:], sent_lines[1:], row_pos, col_pos
+        )
+        buffer.append(sentence)
+        if col_pos == len(lines[row_pos]):
+            paragraphs.append(" ".join(buffer))
+            buffer = []
+            row_pos += 1
+            col_pos = 0
+    return paragraphs
+
+
 def _extract_speakers_two(doc):
-    pages = [page.get_text("text") for page in doc]
-    text = "\n".join(
-        page
-        for i, page in enumerate(pages)
-        # a transcript page would have at-least 150 words
-        # or is last page
-        if len(page.split()) > 150 or i == len(pages) - 1
-    )
+    pages = _get_main_pages(doc)
+    text = "\n".join([page.text for page in pages])
 
     # tokenize the text and recognize named entities
     named_tags = nltk.ne_chunk(nltk.pos_tag(nltk.word_tokenize(text)))
 
-    speaker_firm = _extract_relations(named_tags)
-
-    # extract all speakers
+    # extract all PERSON named entities
     # by looping over all named entities
-    # an entity is a speaker
-    # if their name is the first word of any line
     people = []
     for entity in named_tags:
         if isinstance(entity, nltk.tree.Tree) and entity.label() == "PERSON":
             person = " ".join(leaf[0] for leaf in entity.leaves())
-            if person.lower() in STOP_WORDS:
-                continue
             if person not in people:
                 people.append(person)
 
+    # loop over sentences
+    # a speakers mention is usually at the start of the sentence
+    paragraphs = _get_text_blocks(text)
+    speaker_firm = _extract_relations(named_tags)
     speakers = []
-    lines = nltk.tokenize.sent_tokenize(text)
     for person in people:
-        speaker_lines = [line for line in lines if line.startswith(person)]
+        speaker_lines = [
+            line for line in paragraphs if line.startswith(person)
+        ]
         if speaker_lines:
             print("PERSON:", person)
             _print_portion(named_tags, speaker_lines[0])
@@ -251,4 +314,6 @@ def _extract_speakers_in_bold(doc):
 def extract_speakers(pdf_name):
     doc = fitz.open(pdf_name)
     speakers = _extract_speakers_in_bold(doc)
+    if not speakers:
+        speakers = _extract_speakers_two(doc)
     return speakers

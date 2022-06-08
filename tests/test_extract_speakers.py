@@ -30,7 +30,7 @@ class ExtractionTestCases(TestCase):
             Speaker(name="Ankit Toshniwal", firm="Go India Advisors"),
             Speaker(name="Dinesh Gandhi", firm="GPIL"),
             Speaker(name="Niteen Dharmavat", firm="Aurum Capital"),
-            Speaker(name="Abhishek Agrawal", firm=None),
+            Speaker(name="Abhishek Agrawal", firm="Executive Director"),
             Speaker(name="Vikas Singh", firm="Philip Capital"),
             Speaker(name="Yogansh Jeswani", firm="Mittall Analytics"),
             Speaker(name="AM Lodha", firm="Sanmati Consultants"),
@@ -50,11 +50,11 @@ class ExtractionTestCases(TestCase):
         speakers = extract_speakers(pdf)
         expected = [
             Speaker(name="Sneha Gavankar", firm=None),
-            Speaker(name="PB Balaji", firm=None),
-            Speaker(name="Adrian Mardell", firm=None),
-            Speaker(name="Girish Wagh", firm=None),
-            Speaker(name="Shailesh Chandra", firm=None),
-            Speaker(name="Thierry Bolloré", firm=None),
+            Speaker(name="PB Balaji", firm="Group CFO"),
+            Speaker(name="Adrian Mardell", firm="CFO"),
+            Speaker(name="Girish Wagh", firm="Executive Director"),
+            Speaker(name="Shailesh Chandra", firm="MD"),
+            Speaker(name="Thierry Bolloré", firm="CEO Jaguar Land Rover"),
         ]
         self.maxDiff = None
         self.assertEqual(speakers, expected)
@@ -77,6 +77,24 @@ class ExtractionTestCases(TestCase):
             Speaker(name="Amish Shah", firm="Bank of America Securities"),
             Speaker(name="Ashish Shah", firm="Centrum Broking"),
             Speaker(name="Kirti Jain", firm="Canara HSBC Life"),
+        ]
+        self.maxDiff = None
+        self.assertEqual(speakers, expected)
+
+    def test_extract_speakers_avanti(self):
+        pdf = "test_files/avanti.pdf"
+        speakers = extract_speakers(pdf)
+        expected = [
+            Speaker(name="Moderator", firm=None),
+            Speaker(name="Nitin Awasti", firm="Incread research"),
+            Speaker(name="Sri C Ramachandra Rao", firm=None),
+            # Onkar Ghugadare is from Sree Investment
+            # But it is missed because of spelling error in Ghugadre
+            Speaker(name="Onkar Ghugadare", firm=None),
+            Speaker(name="Sri. Alluri Nikhilesh", firm=None),
+            Speaker(name="Vinayak Mohta", firm="Stallion Asset"),
+            Speaker(name="Depesh Kashyap", firm="Equirus Capital"),
+            Speaker(name="Ayush Mittal", firm="Mittal Analytics"),
         ]
         self.maxDiff = None
         self.assertEqual(speakers, expected)
