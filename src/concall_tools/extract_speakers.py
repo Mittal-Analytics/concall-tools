@@ -30,7 +30,7 @@ def _get_main_pages(doc):
     word_counts = [page.word_count for page in pages]
     median = sorted(word_counts)[len(word_counts) // 2]
     # main pages are pages with at-least half as much text
-    main_pages = [page for page in pages if page.word_count > (median / 3)]
+    main_pages = [page for page in pages if page.word_count > (median / 2)]
     return main_pages
 
 
@@ -279,7 +279,7 @@ def _extract_speakers_two(doc):
 
 def _get_plain_text_word_count(el):
     word_count = 0
-    if el.tag != "b":
+    if el is not None and el.tag != "b":
         if el.text:
             word_count += len(el.text.split())
         for child in el.getchildren():
@@ -302,6 +302,8 @@ def _is_text_block_child(el):
 
 
 def _is_name(text):
+    if "," in text:
+        return False
     # remove all non-alphanumeric characters
     text = re.sub(r"[^a-zA-Z\s]", "", text).strip()
     return len(text) > 2 and len(text.split()) <= 5
