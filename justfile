@@ -5,4 +5,4 @@ test-all:
     python -m unittest
 
 test TEST:
-    python -m unittest -k {{TEST}}
+    python -Wa -m unittest -k {{TEST}}

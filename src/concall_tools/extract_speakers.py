@@ -161,20 +161,12 @@ def _print_portion(named_tags, substr):
 
 def _assert_same(lines, sent_lines, row_pos, col_pos):
     for sent_line in sent_lines[:-1]:
-        if not lines[row_pos] == sent_line:
-            import ipdb
-
-            ipdb.set_trace()
         assert lines[row_pos] == sent_line
         row_pos += 1
         col_pos = 0
     if sent_lines:
         last_sent_line = sent_lines[-1]
         compared_line = lines[row_pos]
-        if not compared_line.startswith(last_sent_line):
-            import ipdb
-
-            ipdb.set_trace()
         assert compared_line.startswith(last_sent_line)
         row_pos += 1
         col_pos = len(last_sent_line)
@@ -200,12 +192,7 @@ def _get_text_blocks(text):
     while sentences:
         sentence = sentences.pop(0)
         sent_lines = [l.strip() for l in sentence.splitlines() if l.strip()]
-        try:
-            assert lines[row_pos][col_pos:].strip().startswith(sent_lines[0])
-        except:
-            import ipdb
-
-            ipdb.set_trace()
+        assert lines[row_pos][col_pos:].strip().startswith(sent_lines[0])
         col_pos = lines[row_pos].index(sent_lines[0], col_pos) + len(
             sent_lines[0]
         )
