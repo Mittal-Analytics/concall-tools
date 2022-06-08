@@ -98,7 +98,7 @@ def _manual_chunk(named_tags):
         ("from", "FROM") if w == "from" else (w, t) for w, t in pos_tags
     ]
 
-    grammar = """
+    grammar = r"""
         FIR: {<JJ>? <NNP.*>+ <IN|CC> <NNP.*> <NN.*>*}
         PER: {<JJ>? <NNP.*>+ <NN.*>*}
         REL: {<PER> <,>? <FROM> <FIR> <.|,>}
