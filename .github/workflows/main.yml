@@ -54,7 +54,7 @@ jobs:
       - name: Install nltk data
         run: |
           sudo mkdir -p ${NLTK_DATA}
-          python -m nltk.downloader brown punkt wordnet averaged_perceptron_tagger maxent_treebank_pos_tagger
+          python -m nltk.downloader brown punkt wordnet averaged_perceptron_tagger maxent_treebank_pos_tagger maxent_ne_chunker
         env:
           NLTK_DATA: /usr/share/nltk_data
 
