@@ -86,10 +86,6 @@ class ExtractionTestCases(TestCase):
         speakers = extract_speakers(pdf)
         expected = [
             Speaker(name="C. Ramachandra Rao", firm="Joint Managing Director"),
-            # these two headings are false-positives
-            # because they are in bold, just like names
-            Speaker(name="SHRIMP FEED CONSUMPTION", firm=None),
-            Speaker(name="SHRIMP PROCESSING AND EXPORT", firm=None),
             Speaker(name="Moderator", firm=None),
             Speaker(name="Nitin Awasti", firm="Incread research"),
             Speaker(name="Sri C Ramachandra Rao", firm=None),
