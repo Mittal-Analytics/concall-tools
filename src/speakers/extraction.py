@@ -1,7 +1,6 @@
 import re
 from collections import namedtuple
 
-import fitz
 import lxml.html
 import nltk
 
@@ -218,7 +217,7 @@ def _cleanup_people(text, people):
     return people
 
 
-def _extract_speakers_two(doc):
+def get_speakers_from_text(doc):
     pages = _get_main_pages(doc)
     text = "\n".join([page.text for page in pages])
 
@@ -299,7 +298,7 @@ def _is_name(text):
     return len(text) > 2 and len(text.split()) <= 5
 
 
-def _extract_speakers_in_bold(doc):
+def get_speakers_in_bold(doc):
     people = []
     pages = _get_main_pages(doc)
     for page in pages:
@@ -329,12 +328,4 @@ def _extract_speakers_in_bold(doc):
         speaker = Speaker(name=person, firm=speaker_firm.get(fp, None))
         if speaker not in speakers:
             speakers.append(speaker)
-    return speakers
-
-
-def extract_speakers(pdf_name):
-    doc = fitz.open(pdf_name)
-    speakers = _extract_speakers_in_bold(doc)
-    if not speakers:
-        speakers = _extract_speakers_two(doc)
     return speakers

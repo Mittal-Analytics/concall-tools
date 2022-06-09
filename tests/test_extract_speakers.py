@@ -1,13 +1,13 @@
 import unittest
 from unittest import TestCase
 
-from src.concall_tools.extract_speakers import Speaker, extract_speakers
+from src.concall_tools import Speaker, get_speakers
 
 
 class ExtractionTestCases(TestCase):
     def test_extract_speakers_aimco(self):
         pdf = "test_files/aimco-concall.pdf"
-        speakers = extract_speakers(pdf)
+        speakers = get_speakers(pdf)
         expected = [
             Speaker(name="Moderator", firm=None),
             Speaker(name="Sayam Pokharna", firm="Investment Lab"),
@@ -24,7 +24,7 @@ class ExtractionTestCases(TestCase):
 
     def test_extract_speakers_gpil(self):
         pdf = "test_files/gpil-concall.pdf"
-        speakers = extract_speakers(pdf)
+        speakers = get_speakers(pdf)
         expected = [
             Speaker(name="Moderator", firm=None),
             Speaker(name="Ankit Toshniwal", firm="Go India Advisors"),
@@ -47,7 +47,7 @@ class ExtractionTestCases(TestCase):
 
     def test_extract_speakers_tata_motors(self):
         pdf = "test_files/tata-motor.pdf"
-        speakers = extract_speakers(pdf)
+        speakers = get_speakers(pdf)
         expected = [
             Speaker(name="PB Balaji", firm="Group CFO"),
             Speaker(name="Adrian Mardell", firm="CFO"),
@@ -60,7 +60,7 @@ class ExtractionTestCases(TestCase):
 
     def test_extract_speakers_lt(self):
         pdf = "test_files/lt.pdf"
-        speakers = extract_speakers(pdf)
+        speakers = get_speakers(pdf)
         expected = [
             Speaker(name="Moderator", firm=None),
             Speaker(name="P. Ramakrishnan", firm=None),
@@ -82,7 +82,7 @@ class ExtractionTestCases(TestCase):
 
     def test_extract_speakers_avanti(self):
         pdf = "test_files/avanti.pdf"
-        speakers = extract_speakers(pdf)
+        speakers = get_speakers(pdf)
         expected = [
             Speaker(name="C. Ramachandra Rao", firm="Joint Managing Director"),
             Speaker(name="Moderator", firm=None),
@@ -102,7 +102,7 @@ class ExtractionTestCases(TestCase):
 
     def test_extract_speakers_hdfc(self):
         pdf = "test_files/hdfc-concall.pdf"
-        speakers = extract_speakers(pdf)
+        speakers = get_speakers(pdf)
         expected = [
             Speaker(name="Moderator", firm=None),
             Speaker(name="Srinivasan V", firm=None),
@@ -119,7 +119,7 @@ class ExtractionTestCases(TestCase):
 
     def test_extract_speakers_asian_paints(self):
         pdf = "test_files/asian-paints.pdf"
-        speakers = extract_speakers(pdf)
+        speakers = get_speakers(pdf)
         expected = [
             Speaker(name="Moderator", firm=None),
             Speaker(name="Arun Nair", firm="Corporate Communications"),
