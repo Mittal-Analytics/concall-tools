@@ -138,6 +138,41 @@ class ExtractionTestCases(TestCase):
         self.maxDiff = None
         self.assertEqual(speakers, expected)
 
+    def test_extract_speakers_sandur(self):
+        pdf = "test_files/sandur-concall.pdf"
+        speakers = get_speakers(pdf)
+        expected = [
+            Speaker(name="Moderator", firm=None),
+            Speaker(name="Bahirji Ghorpade", firm=None),
+            Speaker(name="Ayush Agarwal", firm="Mittal Analytics"),
+            Speaker(name="Shubham Agarwal", firm="Equitas Investments"),
+            Speaker(name="Abhay Lodha", firm=None),
+            Speaker(name="Abhishek Maheshwari", firm=None),
+            Speaker(name="Rahul Jain", firm=None),
+            Speaker(name="Kamal Gupta", firm=None),
+            Speaker(name="Ramesh Kumar Jain", firm=None),
+            Speaker(name="Ayush Mittal", firm="Mittal Analytics"),
+            Speaker(name="Ashok Kumar", firm=None),
+            Speaker(name="Yachna Bhatia", firm=None),
+            Speaker(name="Sahil Sanghvi", firm="Monarch Networth Capital"),
+            Speaker(name="Mayur Shah", firm=None),
+            Speaker(name="Rajesh Agarwal", firm=None),
+            Speaker(name="Abdul Saleem", firm=None),
+            # sachin sanu is not found as his appearance is only once
+            # Speaker(name="Sachin Sanu", firm=None),
+            Speaker(name="Manoj Dua", firm=None),
+            Speaker(name="Bach Raj Nahar", firm=None),
+            Speaker(name="Arpit Ranka", firm=None),
+            Speaker(name="Jitendra Anchalia", firm=None),
+            Speaker(name="Sanjay Jain", firm=None),
+            Speaker(name="Hardik Jain", firm=None),
+            Speaker(name="Prashanth Shah", firm=None),
+            Speaker(name="Participant", firm=None),
+            Speaker(name="Satish Kumar", firm=None),
+        ]
+        self.maxDiff = None
+        self.assertEqual(speakers, expected)
+
 
 if __name__ == "__main__":
     unittest.main()

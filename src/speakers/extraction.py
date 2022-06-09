@@ -284,7 +284,7 @@ def _is_text_block_child(el):
     word_count = _get_plain_text_word_count(parent)
 
     next_block = parent.getnext()
-    if not next_block.text_content().strip():
+    if next_block is not None and not next_block.text_content().strip():
         next_block = next_block.getnext()
     word_count = _get_plain_text_word_count(next_block)
     return word_count >= 5
