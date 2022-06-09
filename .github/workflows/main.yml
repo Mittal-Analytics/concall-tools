@@ -61,3 +61,7 @@ jobs:
       - name: Run tests
         run: |
           python -Wa -m unittest
+
+      - name: Check imports
+        run: |
+          python -c "from concall_tools import get_speakers"
