@@ -3,6 +3,9 @@ from collections import namedtuple
 
 import lxml.html
 import nltk
+import fitz
+import enchant
+d = enchant.Dict("en_US")
 
 Speaker = namedtuple("Speaker", ["name", "firm"])
 
@@ -29,7 +32,7 @@ def _get_main_pages(doc):
     word_counts = [page.word_count for page in pages]
     median = sorted(word_counts)[len(word_counts) // 2]
     # main pages are pages with at-least half as much text
-    main_pages = [page for page in pages if page.word_count > (median / 3)]
+    main_pages = [page for page in pages if page.word_count > (median / 4) and page.number!=0]
     return main_pages
 
 
@@ -329,3 +332,323 @@ def get_speakers_in_bold(doc):
         if speaker not in speakers:
             speakers.append(speaker)
     return speakers
+
+
+def get_speaker_name(doc):
+    doc=fitz.open(doc)
+    pages=_get_main_pages(doc)
+    text = "\n".join([page.text for page in pages])
+    text = text.replace("Pvt.", "Pvt")
+    text = text.replace(":",":\n")
+    sentences = nltk.sent_tokenize(text)
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    #print(lines)
+    names=[]
+    names1=[]
+    converse=[]
+    for line in lines:
+        a=0
+        words1=line.split()
+        if len(words1)<=5 and (len(words1)>=1 or (words1[0]=="Moderator" or words1[0]=='Moderator:')) and 'Limited' not in words1 and 'Joint' not in words1 and 'Session' not in words1:
+            if(len(words1)==1):
+                if len(words1[0])<4:
+                    a=1
+            for word in words1:
+                if not word[0].isupper():
+                    a=1
+                for letter in word:
+                    if letter.isnumeric():
+                        a=1
+                        break
+                    if letter==',' or letter=='-':
+                        a=1
+                        break
+            if a==0:
+                if line not in names:
+                    names.append(line)
+    k=0
+    names1=names
+    #print(names)
+    for name in names1:
+        if name[-1]==':':
+            k=k+1
+    names=[]
+    for name in names1:
+        if k/len(names1)>0.45:
+            if name[-1]==':':
+                names.append(name)
+        elif name[-1]!=':' and name[-1]!='.':
+            names.append(name)
+    names1=names
+    names=[]
+    #print(names1)
+    for name in names1:
+        k1=0
+        for word in name.split():
+            if word[-1]==':':
+                word=word[0:len(word)-1]
+            if d.check(word):
+                k1=k1+1
+                if word=='Sri' or len(word)==1 or word=='Shah' or word=='Moderator' or word=='moderator' or word=='Raj' or word=='Participant':
+                    k1=k1-1
+            if name=='KFin' or name[-1]=='?':
+                k1=k1+1
+        #print(name)
+        #print(k1)
+        #print(k1/len(name.split()))
+        if k1/len(name.split())<=0.50:
+            #print(name)
+            names.append(name)
+    names1=names
+    for name in names:
+        for nam in names:
+            if nam.find(name)!=-1:
+                if len(nam)>len(name):
+                    names1.remove(name)
+    names=names1
+    names1=[]
+    for line in lines:
+        if line in names:
+            converse.append(line)
+    return [names,lines,converse]
+
+
+def get_speakers_capitals(doc):    
+    names,lines,converse=get_speaker_name(doc)
+    s=''
+    conversation=[]
+    for line in lines:
+        if line not in names:
+            s=s+line+' '
+        else:
+            conversation.append(s)
+            s=''
+    if s!='':
+        conversation.append(s)
+    #print(conversation[0])
+    #print(conversation[1])
+    conversation1=conversation
+    conversation=conversation[1:len(conversation)]
+    #print(conversation[0])
+    final={}
+    for name in names:
+        a1=0
+        if name!='Mr.':
+            #print(len(conversation))
+            #print(name1)
+            for i in range(len(conversation)):
+                if converse[i]=='Moderator:' or converse[i]=='Moderator' or converse[i]=='Operator' or converse[i]=='Operator:':
+                    a=0
+                    #print(converse[i],conversation[i])
+                    l=conversation[i]
+                    l=l.replace('.','. ')
+                    l=l.replace(',',', ')
+                    l=l.replace('from','from ')
+                    l=l.replace('(','')
+                    l=l.replace(')','.')
+                    #print(name)
+                    #print(l)
+                    w=l.split()
+                    #print(w)
+                    q=0
+                    q1=0
+                    for word in name.split():
+                        if word[-1]==':':
+                            word=word[0:len(word)-1]
+                        if word in w:
+                            #a1=a1+1
+                            if q==0:
+                                k=w.index(word)
+                                q=1
+                            a=a+1
+                        elif q==0:
+                            q1=q1+1
+                    if a>a1:
+                        a1=a
+                    #print(name)
+                    #print(a)
+                    #print(a1)
+                    #print(w)
+                    if a/len(name.split())>=0.5 and a>=a1:
+                        #print(q1)
+                        #print(name)
+                        #print(w)
+                        q2=0
+                        q3=0
+                        s=''
+                        for c in range(k+len(name.split())-q1,len(w)):
+                            if ((w[c][0].isupper() or w[c]=='individual') and q2==0 and w[c]!='Sir,'):
+                                #print(w[c])
+                                q2=1
+                                b=((w[c][-1]=='.' or w[c][-1]==',') and q2==1)
+                                while not b:
+                                    #print("Hello")
+                                    s=s+w[c]+' '
+                                    c=c+1
+                                    if c==len(w):
+                                        s=''
+                                        q3=1
+                                        break
+                                    b=((w[c][-1]=='.' or w[c][-1]==',') and q2==1)
+                                if q3==0:
+                                    s=s+w[c]
+                        s=s[0:len(s)-1]
+                        if len(s.split())>4:
+                            s=''
+                        if name[-1]==':':
+                            name=name[0:len(name)-1]
+                        final[name]=s
+    #print(final)
+    for name in names:
+        if name[-1]==':':
+            name=name[0:len(name)-1]
+        if name not in final.keys() or final[name]=='':
+            q4=0
+            #print(name)
+            for i in range(len(conversation)):
+                if converse[i][-1]==':':
+                    converse[i]=converse[i][0:len(converse[i])-1]
+                if converse[i]==name:
+                    #print("Hi")
+                    a=0
+                    q4=1
+                    l=conversation[i]
+                    l=l.replace('.','. ')
+                    l=l.replace(',',', ')
+                    l=l.replace('from','from ')
+                    #print(name)
+                    #print(l)
+                    w=l.split()
+                    q=0
+                    q1=0
+                    for word in name.split():
+                        if word[-1]==':':
+                            word=word[0:len(word)-1]
+                        if word in w:
+                            if q==0:
+                                k=w.index(word)
+                                q=1
+                            a=a+1
+                        elif q==0:
+                            q1=q1+1
+                    if a>0:
+                        #print(q1)
+                        #print(name)
+                        #print(w)
+                        q2=0
+                        q3=0
+                        s=''
+                        if (k+len(name.split())-q1)<len(w):
+                            for c in range(k+len(name.split())-q1,len(w)):
+                                if ((w[c][0].isupper() or w[c]=='individual') and q2==0 and w[c]!='I'):
+                                    #print(w[c])
+                                    q2=1
+                                    b=((w[c][-1]=='.' or w[c][-1]==',') and q2==1)
+                                    while not b:
+                                        #print("Hello")
+                                        s=s+w[c]+' '
+                                        c=c+1
+                                        if c==len(w):
+                                            s=''
+                                            q3=1
+                                            break
+                                        b=((w[c][-1]=='.' or w[c][-1]==',') and q2==1)
+                                    if q3==0:
+                                        s=s+w[c]
+                                    #print(s)
+                            s=s[0:len(s)-1]
+                            if len(s.split())>4:
+                                s=''
+                            if name[-1]==':':
+                                name=name[0:len(name)-1]
+                            if name not in final.keys() or final[name]=='':
+                                final[name]=s
+    #print(final)
+    for name in names:
+        a1=0
+        if name[-1]==':':
+            name=name[0:len(name)-1]
+        if name not in final.keys() or final[name]=='':
+            for i in range(3):
+                if name not in final.keys() or final[name]=='':
+                    a=0
+                    l=conversation1[i]
+                    l=l.replace('.','. ')
+                    l=l.replace(',',', ')
+                    l=l.replace('from','from ')
+                    l=l.replace('(','')
+                    l=l.replace(')','.')
+                    #print(name)
+                    #print(i,l)
+                    w=l.split()
+                    #print(w)
+                    q=0
+                    q1=0
+                    for word in name.split():
+                        if word[-1]==':':
+                            word=word[0:len(word)-1]
+                        if word in w:
+                            #a1=a1+1
+                            if q==0:
+                                k=w.index(word)
+                                q=1
+                            a=a+1
+                        elif q==0:
+                            q1=q1+1
+                    if a>a1:
+                        a1=a
+                    #print(name)
+                    #print(a)
+                    #print(a1)
+                    #print(w)
+                    if a/len(name.split())>=0.5 and a>=a1:
+                        #print(q1)
+                        #print(name)
+                        #print(w)
+                        q2=0
+                        q3=0
+                        s=''
+                        for c in range(k+len(name.split())-q1,len(w)):
+                            if ((w[c][0].isupper() or w[c]=='individual') and q2==0):
+                                #print(w[c])
+                                q2=1
+                                b=((w[c][-1]=='.' or w[c][-1]==',') and q2==1)
+                                while not b:
+                                    #print("Hello")
+                                    s=s+w[c]+' '
+                                    c=c+1
+                                    if c==len(w):
+                                        s=''
+                                        q3=1
+                                        break
+                                    b=((w[c][-1]=='.' or w[c][-1]==',' or w[c][-1]==';' or w[c]=='and' or w[c]=='May') and q2==1)
+                                if q3==0 and w[c]!='and' and w[c]!='May':
+                                    s=s+w[c]
+                        s=s[0:len(s)-1]
+                        if len(s.split())>4:
+                            s=''
+                        if name[-1]==':':
+                            name=name[0:len(name)-1]
+                        final[name]=s
+    #print(final)
+    for name in names:
+        #print(name)
+        if name[-1]==':':
+            name=name[0:len(name)-1]
+        if name not in final.keys() or final[name]=='':
+            final[name]=None
+    speakers=[]
+    names2=[]
+    for name in names:
+        #print(name)
+        if name[-1]==':':
+            name=name[0:len(name)-1]
+        if name in final.keys():
+            names2.append(name)
+    for name in names2:
+        speaker = Speaker(name=name, firm=final[name])
+        speakers.append(speaker)
+    return speakers
+
+
+
