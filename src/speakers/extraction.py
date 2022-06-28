@@ -5,7 +5,7 @@ import lxml.html
 import nltk
 import fitz
 import enchant
-d = enchant.Dict("en_US")
+dictionary = enchant.Dict("en_US")
 
 Speaker = namedtuple("Speaker", ["name", "firm"])
 
@@ -334,87 +334,97 @@ def get_speakers_in_bold(doc):
     return speakers
 
 
-def get_speaker_name(doc):
+def get_lines(doc):
     doc=fitz.open(doc)
     pages=_get_main_pages(doc)
     text = "\n".join([page.text for page in pages])
     text = text.replace("Pvt.", "Pvt")
     text = text.replace(":",":\n")
-    sentences = nltk.sent_tokenize(text)
     lines = [l.strip() for l in text.splitlines() if l.strip()]
-    #print(lines)
-    names=[]
-    names1=[]
-    converse=[]
-    for line in lines:
-        a=0
-        words1=line.split()
-        if len(words1)<=5 and (len(words1)>=1 or (words1[0]=="Moderator" or words1[0]=='Moderator:')) and 'Limited' not in words1 and 'Joint' not in words1 and 'Session' not in words1:
-            if(len(words1)==1):
-                if len(words1[0])<4:
-                    a=1
-            for word in words1:
-                if not word[0].isupper():
-                    a=1
-                for letter in word:
-                    if letter.isnumeric():
-                        a=1
-                        break
-                    if letter==',' or letter=='-':
-                        a=1
-                        break
-            if a==0:
-                if line not in names:
-                    names.append(line)
-    k=0
-    names1=names
-    #print(names)
-    for name in names1:
+    return lines
+
+
+def check_last_char(names):
+    count=0
+    names_temp=[]
+    for name in names:
         if name[-1]==':':
-            k=k+1
+            count=count+1
+    names_temp=names
     names=[]
-    for name in names1:
-        if k/len(names1)>0.45:
+    for name in names_temp:
+        if count/len(names_temp)>0.40:
             if name[-1]==':':
                 names.append(name)
         elif name[-1]!=':' and name[-1]!='.':
             names.append(name)
-    names1=names
+    return names
+
+
+def remove_last_char_if_colon(word):
+    if word[-1]==':':
+        word=word[0:len(word)-1]
+    return word
+
+
+def check_dict(names):
+    names_temp=names
     names=[]
-    #print(names1)
-    for name in names1:
-        k1=0
+    possible_names_in_dictionary=['Shah','Moderator','moderator','Raj','Participant']
+    for name in names_temp:
+        count=0
         for word in name.split():
-            if word[-1]==':':
-                word=word[0:len(word)-1]
-            if d.check(word):
-                k1=k1+1
-                if word=='Sri' or len(word)==1 or word=='Shah' or word=='Moderator' or word=='moderator' or word=='Raj' or word=='Participant':
-                    k1=k1-1
-            if name=='KFin' or name[-1]=='?':
-                k1=k1+1
-        #print(name)
-        #print(k1)
-        #print(k1/len(name.split()))
-        if k1/len(name.split())<=0.50:
-            #print(name)
+            word=remove_last_char_if_colon(word)
+            if dictionary.check(word) and word not in possible_names_in_dictionary:
+                count=count+1
+            if name=='KFin':
+                count=count+1
+        if count/len(name.split())<=0.50:
             names.append(name)
-    names1=names
-    for name in names:
-        for nam in names:
-            if nam.find(name)!=-1:
-                if len(nam)>len(name):
-                    names1.remove(name)
-    names=names1
-    names1=[]
+    return names
+
+
+def check_repetations(names):
+    names_temp=names
+    for name_outer in names:
+        for name_inner in names:
+            if name_outer.find(name_inner)!=-1 and len(name_outer)>len(name_inner):
+                names_temp.remove(name_inner)
+    names=names_temp
+    return(names)
+
+
+def get_speaker_names(doc):
+    lines = get_lines(doc)
+    char_not_in_names=[',','-','&','?']
+    names=[]
+    converse=[]
+    for line in lines:
+        flag=0
+        words=line.split()
+        if len(words)<=5 or (words[0]=="Moderator" or words[0]=='Moderator:'): 
+            if len(words)==1 and len(words[0])<4:
+                flag=1
+            for word in words:
+                if not word[0].isupper():
+                    flag=1
+                for letter in word:
+                    if letter.isnumeric() or letter in char_not_in_names:
+                        flag=1
+            if flag==0:
+                if line not in names:
+                    names.append(line)
+    names=check_dict(names)
+    names=check_last_char(names)
+    names=check_repetations(names)
     for line in lines:
         if line in names:
             converse.append(line)
     return [names,lines,converse]
 
 
-def get_speakers_capitals(doc):    
-    names,lines,converse=get_speaker_name(doc)
+def get_conversation(doc):
+    names,lines,converse=get_speaker_names(doc)
     s=''
     conversation=[]
     for line in lines:
@@ -425,227 +435,195 @@ def get_speakers_capitals(doc):
             s=''
     if s!='':
         conversation.append(s)
-    #print(conversation[0])
-    #print(conversation[1])
-    conversation1=conversation
+    conversation_from_beginning=conversation
     conversation=conversation[1:len(conversation)]
-    #print(conversation[0])
+    return (conversation,conversation_from_beginning)
+
+
+def modify_str(l):
+    str=l.replace('.','. ')
+    l=l.replace(',',', ')
+    l=l.replace('from','from ')
+    l=l.replace('(','')
+    l=l.replace(')','.')
+    w=l.split()
+    return w
+
+
+def find_count(name,w,count_max):
+    flag=0
+    position=0
+    count=0
+    name_index=0
+    for word in name.split():
+        word=remove_last_char_if_colon(word)
+        if word in w:
+            if flag==0:
+                name_index=w.index(word)
+                flag=1
+            count=count+1
+        elif flag==0:
+            position=position+1
+    if count>count_max:
+        count_max=count
+    return (count,count_max,position,name_index)
+
+
+def pass_1(names,conversation,converse):
     final={}
     for name in names:
-        a1=0
-        if name!='Mr.':
-            #print(len(conversation))
-            #print(name1)
+        name=remove_last_char_if_colon(name)
+        count_max=0
+        for i in range(len(conversation)):
+            if converse[i]=='Moderator:' or converse[i]=='Moderator' or converse[i]=='Operator' or converse[i]=='Operator:':
+                count=0
+                l=conversation[i]
+                #modify_str takes the conversation, makes some changes and returns the words to w
+                w=modify_str(l)
+                #postion is the postion of the word identified in name 
+                #name_index is the postion of the word identified in w                
+                count,count_max,position,name_index=find_count(name,w,count_max)
+                if count/len(name.split())>=0.5 and count>=count_max:
+                    flag_2=0
+                    flag_3=0
+                    firm=''
+                    for c in range(name_index+len(name.split())-position,len(w)):
+                        if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,'):
+                            flag_2=1
+                            b=((w[c][-1]=='.' or w[c][-1]==','))
+                            while not b:
+                                firm=firm+w[c]+' '
+                                c=c+1
+                                if c==len(w):
+                                    for letter in firm:
+                                        if letter.isnumeric():
+                                            firm=''
+                                    flag_3=1
+                                    break
+                                b=((w[c][-1]=='.' or w[c][-1]==','))
+                            if flag_3==0:
+                                firm=firm+w[c]
+                    firm=firm[0:len(firm)-1]
+                    if len(firm.split())>5:
+                        firm=''
+                    if name[-1]==':':
+                        name=name[0:len(name)-1]
+                    final[name]=firm
+    return final
+
+
+def pass_2(names,conversation,converse,final):
+    for name in names:
+        count_max=0
+        name=remove_last_char_if_colon(name)
+        if name not in final.keys() or final[name]=='':
             for i in range(len(conversation)):
-                if converse[i]=='Moderator:' or converse[i]=='Moderator' or converse[i]=='Operator' or converse[i]=='Operator:':
-                    a=0
-                    #print(converse[i],conversation[i])
+                converse[i]=remove_last_char_if_colon(converse[i])
+                if converse[i]==name:
+                    count=0
                     l=conversation[i]
-                    l=l.replace('.','. ')
-                    l=l.replace(',',', ')
-                    l=l.replace('from','from ')
-                    l=l.replace('(','')
-                    l=l.replace(')','.')
-                    #print(name)
-                    #print(l)
-                    w=l.split()
-                    #print(w)
-                    q=0
-                    q1=0
-                    for word in name.split():
-                        if word[-1]==':':
-                            word=word[0:len(word)-1]
-                        if word in w:
-                            #a1=a1+1
-                            if q==0:
-                                k=w.index(word)
-                                q=1
-                            a=a+1
-                        elif q==0:
-                            q1=q1+1
-                    if a>a1:
-                        a1=a
-                    #print(name)
-                    #print(a)
-                    #print(a1)
-                    #print(w)
-                    if a/len(name.split())>=0.5 and a>=a1:
-                        #print(q1)
-                        #print(name)
-                        #print(w)
-                        q2=0
-                        q3=0
-                        s=''
-                        for c in range(k+len(name.split())-q1,len(w)):
-                            if ((w[c][0].isupper() or w[c]=='individual') and q2==0 and w[c]!='Sir,'):
-                                #print(w[c])
-                                q2=1
-                                b=((w[c][-1]=='.' or w[c][-1]==',') and q2==1)
+                    l=conversation[i]
+                    #modify_str takes the conversation, makes some changes and returns the words to w
+                    w=modify_str(l)
+                    #postion is the postion of the word identified in name 
+                    #name_index is the postion of the word identified in w
+                    count,count_max,position,name_index=find_count(name,w,count_max)
+                    if count/len(name.split())>=0.33 and count>=count_max:
+                        flag_2=0
+                        flag_3=0
+                        firm=''
+                        for c in range(name_index+len(name.split())-position,len(w)):
+                            if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,' and w[c]!='I'):
+                                flag_2=1
+                                b=((w[c][-1]=='.' or w[c][-1]==','))
                                 while not b:
-                                    #print("Hello")
-                                    s=s+w[c]+' '
+                                    firm=firm+w[c]+' '
                                     c=c+1
                                     if c==len(w):
-                                        s=''
-                                        q3=1
+                                        for letter in firm:
+                                            if letter.isnumeric():
+                                                firm=''
+                                        flag_3=1
                                         break
-                                    b=((w[c][-1]=='.' or w[c][-1]==',') and q2==1)
-                                if q3==0:
-                                    s=s+w[c]
-                        s=s[0:len(s)-1]
-                        if len(s.split())>4:
-                            s=''
+                                    b=((w[c][-1]=='.' or w[c][-1]==','))
+                                if flag_3==0:
+                                    firm=firm+w[c]
+                        firm=firm[0:len(firm)-1]
+                        if len(firm.split())>5:
+                            firm=''
                         if name[-1]==':':
                             name=name[0:len(name)-1]
-                        final[name]=s
-    #print(final)
+                        final[name]=firm
+    return final
+
+
+def pass_3(names,conversation_from_beginning,converse,final):
     for name in names:
-        if name[-1]==':':
-            name=name[0:len(name)-1]
-        if name not in final.keys() or final[name]=='':
-            q4=0
-            #print(name)
-            for i in range(len(conversation)):
-                if converse[i][-1]==':':
-                    converse[i]=converse[i][0:len(converse[i])-1]
-                if converse[i]==name:
-                    #print("Hi")
-                    a=0
-                    q4=1
-                    l=conversation[i]
-                    l=l.replace('.','. ')
-                    l=l.replace(',',', ')
-                    l=l.replace('from','from ')
-                    #print(name)
-                    #print(l)
-                    w=l.split()
-                    q=0
-                    q1=0
-                    for word in name.split():
-                        if word[-1]==':':
-                            word=word[0:len(word)-1]
-                        if word in w:
-                            if q==0:
-                                k=w.index(word)
-                                q=1
-                            a=a+1
-                        elif q==0:
-                            q1=q1+1
-                    if a>0:
-                        #print(q1)
-                        #print(name)
-                        #print(w)
-                        q2=0
-                        q3=0
-                        s=''
-                        if (k+len(name.split())-q1)<len(w):
-                            for c in range(k+len(name.split())-q1,len(w)):
-                                if ((w[c][0].isupper() or w[c]=='individual') and q2==0 and w[c]!='I'):
-                                    #print(w[c])
-                                    q2=1
-                                    b=((w[c][-1]=='.' or w[c][-1]==',') and q2==1)
-                                    while not b:
-                                        #print("Hello")
-                                        s=s+w[c]+' '
-                                        c=c+1
-                                        if c==len(w):
-                                            s=''
-                                            q3=1
-                                            break
-                                        b=((w[c][-1]=='.' or w[c][-1]==',') and q2==1)
-                                    if q3==0:
-                                        s=s+w[c]
-                                    #print(s)
-                            s=s[0:len(s)-1]
-                            if len(s.split())>4:
-                                s=''
-                            if name[-1]==':':
-                                name=name[0:len(name)-1]
-                            if name not in final.keys() or final[name]=='':
-                                final[name]=s
-    #print(final)
-    for name in names:
-        a1=0
-        if name[-1]==':':
-            name=name[0:len(name)-1]
+        count_max=0
+        name=remove_last_char_if_colon(name)
         if name not in final.keys() or final[name]=='':
             for i in range(3):
                 if name not in final.keys() or final[name]=='':
-                    a=0
-                    l=conversation1[i]
-                    l=l.replace('.','. ')
-                    l=l.replace(',',', ')
-                    l=l.replace('from','from ')
-                    l=l.replace('(','')
-                    l=l.replace(')','.')
-                    #print(name)
-                    #print(i,l)
-                    w=l.split()
-                    #print(w)
-                    q=0
-                    q1=0
-                    for word in name.split():
-                        if word[-1]==':':
-                            word=word[0:len(word)-1]
-                        if word in w:
-                            #a1=a1+1
-                            if q==0:
-                                k=w.index(word)
-                                q=1
-                            a=a+1
-                        elif q==0:
-                            q1=q1+1
-                    if a>a1:
-                        a1=a
-                    #print(name)
-                    #print(a)
-                    #print(a1)
-                    #print(w)
-                    if a/len(name.split())>=0.5 and a>=a1:
-                        #print(q1)
-                        #print(name)
-                        #print(w)
-                        q2=0
-                        q3=0
-                        s=''
-                        for c in range(k+len(name.split())-q1,len(w)):
-                            if ((w[c][0].isupper() or w[c]=='individual') and q2==0):
-                                #print(w[c])
-                                q2=1
-                                b=((w[c][-1]=='.' or w[c][-1]==',') and q2==1)
+                    count=0
+                    l=conversation_from_beginning[i]
+                    #modify_str takes the conversation, makes some changes and returns the words to w
+                    w=modify_str(l)
+                    #postion is the postion of the word identified in name 
+                    #name_index is the postion of the word identified in w
+                    count,count_max,position,name_index=find_count(name,w,count_max)
+                    if count/len(name.split())>=0.5 and count>=count_max:
+                        flag_2=0
+                        flag_3=0
+                        firm=''
+                        for c in range(name_index+len(name.split())-position,len(w)):
+                            if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,'):
+                                flag_2=1
+                                b=((w[c][-1]=='.' or w[c][-1]==','))
                                 while not b:
-                                    #print("Hello")
-                                    s=s+w[c]+' '
+                                    firm=firm+w[c]+' '
                                     c=c+1
                                     if c==len(w):
-                                        s=''
-                                        q3=1
+                                        for letter in firm:
+                                            if letter.isnumeric():
+                                                firm=''
+                                        flag_3=1
                                         break
-                                    b=((w[c][-1]=='.' or w[c][-1]==',' or w[c][-1]==';' or w[c]=='and' or w[c]=='May') and q2==1)
-                                if q3==0 and w[c]!='and' and w[c]!='May':
-                                    s=s+w[c]
-                        s=s[0:len(s)-1]
-                        if len(s.split())>4:
-                            s=''
+                                    b=((w[c][-1]=='.' or w[c][-1]==',' or w[c][-1]==';' or w[c]=='and' or w[c]=='May'))
+                                if flag_3==0 and w[c]!='and' and w[c]!='May':
+                                    firm=firm+w[c]
+                        firm=firm[0:len(firm)-1]
+                        if len(firm.split())>5:
+                            firm=''
+                        for letter in firm:
+                            if letter.isnumeric():
+                                firm=''
                         if name[-1]==':':
                             name=name[0:len(name)-1]
-                        final[name]=s
-    #print(final)
+                        final[name]=firm
+    return final
+
+
+def get_speakers_capitals(doc):    
+    names,lines,converse=get_speaker_names(doc)
+    conversation,conversation_from_beginning=get_conversation(doc)
+    final={}
+    #pass 1 checks if the moderator announces any names
+    final=pass_1(names,conversation,converse)
+    #pass 2 checks if incase moderator has not introduced, if the speaker introduces himself
+    final=pass_2(names,conversation,converse,final)
+    #for speakers whose firm is still unknown, we check the first 3 conversations to check if they are introduced as management
+    final=pass_3(names,conversation_from_beginning,converse,final)
     for name in names:
-        #print(name)
-        if name[-1]==':':
-            name=name[0:len(name)-1]
+        name=remove_last_char_if_colon(name)
         if name not in final.keys() or final[name]=='':
             final[name]=None
     speakers=[]
-    names2=[]
+    names_temp=[]
+    #names_temp is created so that the order in which speakers speak is mantained in the final tuple
     for name in names:
-        #print(name)
-        if name[-1]==':':
-            name=name[0:len(name)-1]
-        if name in final.keys():
-            names2.append(name)
-    for name in names2:
+        name=remove_last_char_if_colon(name)
+        names_temp.append(name)
+    for name in names_temp:
         speaker = Speaker(name=name, firm=final[name])
         speakers.append(speaker)
     return speakers

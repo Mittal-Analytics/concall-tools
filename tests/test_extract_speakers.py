@@ -88,9 +88,9 @@ class ExtractionTestCases(TestCase):
         speakers = get_speakers(pdf)
         expected = [
             Speaker(name="Moderator", firm=None),
-            #Speaker(name="Sri C. Ramachandra Rao", firm="Joint Managing Director"),
+            Speaker(name="C. Ramachandra Rao", firm="Joint Managing Director"),
             Speaker(name="Nitin Awasti", firm="Incread research"),
-            Speaker(name="Sri C Ramachandra Rao", firm="Joint Managing Director"),
+            Speaker(name="Sri C Ramachandra Rao", firm=None),
             Speaker(name="Sri Muthyam Reddy", firm=None),
             # Onkar Ghugadare is from Sree Investment
             # But it is missed because of spelling error in Ghugadre
@@ -159,7 +159,7 @@ class ExtractionTestCases(TestCase):
             Speaker(name="Ashok Kumar", firm='Dash – Company Secretary'),
             Speaker(name="Yachna Bhatia", firm=None),
             Speaker(name="Sahil Sanghvi", firm="Monarch Networth Capital"),
-            Speaker(name="Mayur Shah", firm=None),
+            Speaker(name="Mayur Shah", firm='Anand Rathi Portfolio Management team'),
             Speaker(name="Rajesh Agarwal", firm=None),
             Speaker(name="Abdul Saleem", firm='Director Mines.'),
             # sachin sanu is not found as his appearance is only once

@@ -44,4 +44,5 @@ def get_speakers(pdf_name, algorithm="auto"):
         if s[0] not in names:
             if s[1]!=None:
                 speakers2.append(s)
+    #print(speakers2)
     return speakers2
