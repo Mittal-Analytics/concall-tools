@@ -180,6 +180,104 @@ class ExtractionTestCases(TestCase):
         self.maxDiff = None
         self.assertEqual(speakers, expected)
 
+    def test_extract_speakers_hind_zinc(self):
+        pdf = "test_files/hind-zinc.pdf"
+        speakers = get_speakers(pdf)
+        expected = [
+            # Hindustan is a false positive
+            #Speaker(name="Hindustan", firm=None),
+            Speaker(name="Moderator", firm=None),
+            Speaker(name="Shweta Arora", firm='Head of Investor Relations'),
+            #following designation is wrong as persons designation is mentioned before the name
+            Speaker(name="Arun Misra", firm='Interim CFO'),
+            Speaker(name="Sandeep Modi", firm=None),
+            Speaker(name="Amit Dixit", firm="Edelweiss"),
+            Speaker(name="Anuj Singla", firm="Bank of America"),
+            Speaker(name="Abhiram Iyer", firm="Deutsche CIB Center"),
+            Speaker(
+                name="Vishal Chandak", firm="Motilal Oswal Financial Services"
+            ),
+            # Vishal Chandak is written as Visha Chandak (the l is not in bold)
+            #Speaker(name="Visha", firm=None),
+            Speaker(name="Vikash Singh", firm="Phillip Capital"),
+            Speaker(name="Ritesh Shah", firm="Investec"),
+            Speaker(name="Abhijit Mitra", firm="ICICI Securities"),
+            Speaker(
+                name="Pallav Agarwal", firm="Antique Stock Broking Limited"
+            ),
+            Speaker(name="Rahul Jain", firm="Systematix"),
+            Speaker(name="Saket Reddy", firm="Polsani Enterprises"),
+        ]
+        self.maxDiff = None
+        self.assertEqual(speakers, expected)
+
+    def test_extract_speakers_eng_india(self):
+        pdf = "test_files/eng-india.pdf"
+        speakers = get_speakers(pdf)
+        expected = [
+            Speaker(name="Moderator", firm=None),
+            Speaker(
+                name="Kunal Sheth",
+                firm="Batlivala &Karani Securities India Private Limited",
+            ),
+            Speaker(name="Vartika Shukla", firm='Chairman'),
+            Speaker(name="Vinay Kalia", firm="Chief General Manager"),
+            Speaker(name="Saket Kapoor", firm="Kapoor Industries"),
+            Speaker(name="R.P. Batra", firm='Group General Manager'),
+            Speaker(name="Viral Shah", firm="YES Securities"),
+            Speaker(
+                name="Sagar Gandhi",
+                firm="Future Generali India Life Insurance Company",
+            ),
+        ]
+        self.maxDiff = None
+        self.assertEqual(speakers, expected)
+
+    def test_extract_speakers_gsfc(self):
+        pdf = "test_files/gsfc.pdf"
+        speakers = get_speakers(pdf)
+        expected = [
+            Speaker(name="V. D. Nanavaty", firm=None),
+            Speaker(name="Moderator", firm=None),
+            Speaker(name="Nirav Jimudia", firm="Anvil Research"),
+            Speaker(name="Bharath Subramanian", firm="Sundaram Mutual Funds"),
+            Speaker(name="Ahmed Madha", firm="Unifi Capital"),
+            Speaker(name="Poojan Patel", firm="Mahadev Capital"),
+            Speaker(name="Nishith Shah", firm="Equitus Investments"),
+            Speaker(name="Saket Kapoor", firm="Kapoor & Company"),
+            Speaker(name="S.P. Yadav", firm='Deputy Director'),
+            Speaker(name="Deepak Chitroda", firm="Phillip Capital"),
+            Speaker(name="Sreemant Dudhoria", firm="Unifi Capital"),
+            Speaker(name="Priya Mehta", firm="Rishi Finstock"),
+            Speaker(name="Falguni Dutta", firm="Jet Age Securities"),
+        ]
+        self.maxDiff = None
+        self.assertEqual(speakers, expected)
+
+    def test_extract_speakers_tcs(self):
+        pdf = "test_files/tcs.pdf"
+        speakers = get_speakers(pdf)
+        expected = [
+            Speaker(name="Moderator", firm=None),
+            Speaker(name="Kedar Shirali", firm="Global Head"),
+            Speaker(name="Rajesh Gopinathan", firm='Chief Executive Officer'),
+            Speaker(name="Samir Seksaria", firm='Chief Financial Officer'),
+            Speaker(name="N.G. Subramaniam", firm='Chief Operating Officer'),
+            Speaker(name="Kumar Rakesh", firm="BNP Paribas"),
+            Speaker(name="Diviya Nagarajan", firm="UBS"),
+            Speaker(name="Sandip Agarwal", firm="Edelweiss"),
+            Speaker(name="Apurva Prasad", firm="HDFC Securities"),
+            Speaker(
+                name="Mukul Garg", firm="Motilal Oswal Financial Services"
+            ),
+            Speaker(name="Sandeep Shah", firm="Equirus Securities"),
+            Speaker(name="Ravi Menon", firm="Macquarie"),
+            # Samir Seksaria is not found as his appearance is only once
+            Speaker(name="Gaurav Rateria", firm="Morgan Stanley"),
+        ]
+        self.maxDiff = None
+        self.assertEqual(speakers, expected)
+
 
 if __name__ == "__main__":
     unittest.main()

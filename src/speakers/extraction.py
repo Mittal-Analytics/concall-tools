@@ -469,6 +469,18 @@ def find_count(name,w,count_max):
     return (count,count_max,position,name_index)
 
 
+def check_if_firm(firm):
+    count=0
+    if len(firm.split())>4:
+        for word in firm.split():
+            if dictionary.check(word):
+                count=count+1
+        if count==len(firm.split()):
+            firm=''
+    if firm=='Thank you':
+        firm=''
+    return firm
+
 def pass_1(names,conversation,converse):
     final={}
     for name in names:
@@ -504,8 +516,7 @@ def pass_1(names,conversation,converse):
                             if flag_3==0:
                                 firm=firm+w[c]
                     firm=firm[0:len(firm)-1]
-                    if len(firm.split())>5:
-                        firm=''
+                    firm=check_if_firm(firm)
                     if name[-1]==':':
                         name=name[0:len(name)-1]
                     final[name]=firm
@@ -548,9 +559,8 @@ def pass_2(names,conversation,converse,final):
                                     b=((w[c][-1]=='.' or w[c][-1]==','))
                                 if flag_3==0:
                                     firm=firm+w[c]
-                        firm=firm[0:len(firm)-1]
-                        if len(firm.split())>5:
-                            firm=''
+                        firm=firm[0:len(firm)-1]                
+                        firm=check_if_firm(firm)
                         if name[-1]==':':
                             name=name[0:len(name)-1]
                         final[name]=firm
@@ -576,7 +586,7 @@ def pass_3(names,conversation_from_beginning,converse,final):
                         flag_3=0
                         firm=''
                         for c in range(name_index+len(name.split())-position,len(w)):
-                            if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,'):
+                            if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,' and w[c]!='Mr.'):
                                 flag_2=1
                                 b=((w[c][-1]=='.' or w[c][-1]==','))
                                 while not b:
@@ -588,11 +598,12 @@ def pass_3(names,conversation_from_beginning,converse,final):
                                                 firm=''
                                         flag_3=1
                                         break
-                                    b=((w[c][-1]=='.' or w[c][-1]==',' or w[c][-1]==';' or w[c]=='and' or w[c]=='May'))
-                                if flag_3==0 and w[c]!='and' and w[c]!='May':
+                                    b=((w[c][-1]=='.' or w[c][-1]==',' or w[c][-1]==';' or w[c]=='and' or w[c]=='May' or w[c]=='Mr.'))
+                                if flag_3==0 and w[c]!='and' and w[c]!='May' and w[c]!='Mr.':
                                     firm=firm+w[c]
                         firm=firm[0:len(firm)-1]
-                        if len(firm.split())>5:
+                        firm=check_if_firm(firm)
+                        if len(firm.split())>6:
                             firm=''
                         for letter in firm:
                             if letter.isnumeric():
