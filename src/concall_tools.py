@@ -1,6 +1,6 @@
 import fitz
 import enchant
-d = enchant.Dict("en_US")
+
 
 from speakers.extraction import Speaker
 from speakers.extraction import (

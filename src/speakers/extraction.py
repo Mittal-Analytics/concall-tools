@@ -5,7 +5,7 @@ import lxml.html
 import nltk
 import fitz
 import enchant
-dictionary = enchant.Dict("en_US")
+english_dictionary = enchant.Dict("en_US")
 
 Speaker = namedtuple("Speaker", ["name", "firm"])
 
@@ -343,7 +343,7 @@ def get_lines(doc):
     lines = [l.strip() for l in text.splitlines() if l.strip()]
     return lines
 
-
+#If most of the lines containing names end with ':', This fucntion uses that condition to filter out lines that do not end with ':'
 def check_last_char(names):
     count=0
     names_temp=[]
@@ -353,6 +353,7 @@ def check_last_char(names):
     names_temp=names
     names=[]
     for name in names_temp:
+        #if more than 40% of lines that could be names end with ':', filter lines that do not end with ':'
         if count/len(names_temp)>0.40:
             if name[-1]==':':
                 names.append(name)
@@ -366,19 +367,21 @@ def remove_last_char_if_colon(word):
         word=word[0:len(word)-1]
     return word
 
-
+#below fucntion is to check how many words in the names to be filtered belong to a english dictionary and eliminate accordingly.
 def check_dict(names):
     names_temp=names
     names=[]
-    possible_names_in_dictionary=['Shah','Moderator','moderator','Raj','Participant']
+    possible_names_in_english_dictionary=['Shah','Moderator','moderator','Raj','Participant']
     for name in names_temp:
         count=0
         for word in name.split():
             word=remove_last_char_if_colon(word)
-            if dictionary.check(word) and word not in possible_names_in_dictionary:
+            if english_dictionary.check(word) and word not in possible_names_in_english_dictionary:
                 count=count+1
+            #condition added to deal with false positives
             if name=='KFin':
                 count=count+1
+        #below condtion only accepts names that have less than 50% of the words belonging to a dictionary
         if count/len(name.split())<=0.50:
             names.append(name)
     return names
@@ -400,18 +403,19 @@ def get_speaker_names(doc):
     names=[]
     converse=[]
     for line in lines:
-        flag=0
+        is_name=0
         words=line.split()
-        if len(words)<=5 or (words[0]=="Moderator" or words[0]=='Moderator:'): 
+        if len(words)<=5: 
+            #below condition eliminates lines that have only 1 word and contain less than four letters
             if len(words)==1 and len(words[0])<4:
-                flag=1
+                is_name=1
             for word in words:
                 if not word[0].isupper():
-                    flag=1
+                    is_name=1
                 for letter in word:
                     if letter.isnumeric() or letter in char_not_in_names:
-                        flag=1
-            if flag==0:
+                        is_name=1
+            if is_name==0:
                 if line not in names:
                     names.append(line)
     names=check_dict(names)
@@ -420,6 +424,7 @@ def get_speaker_names(doc):
     for line in lines:
         if line in names:
             converse.append(line)
+    #Converse here has the repeated names of people in the order they speak.
     return [names,lines,converse]
 
 
@@ -449,7 +454,7 @@ def modify_str(l):
     w=l.split()
     return w
 
-
+#Function tries to find that paragraph where the full name occurs
 def find_count(name,w,count_max):
     flag=0
     position=0
@@ -471,9 +476,10 @@ def find_count(name,w,count_max):
 
 def check_if_firm(firm):
     count=0
+    #if we Identify a firm that has more than 4 words and all of the words belong to a English Dictionary, we discard it from being a firm
     if len(firm.split())>4:
         for word in firm.split():
-            if dictionary.check(word):
+            if english_dictionary.check(word):
                 count=count+1
         if count==len(firm.split()):
             firm=''
@@ -485,6 +491,7 @@ def pass_1(names,conversation,converse):
     final={}
     for name in names:
         name=remove_last_char_if_colon(name)
+        #count_max stores the maximum number of words from a name that are Identified in any paragraph
         count_max=0
         for i in range(len(conversation)):
             if converse[i]=='Moderator:' or converse[i]=='Moderator' or converse[i]=='Operator' or converse[i]=='Operator:':
@@ -495,10 +502,14 @@ def pass_1(names,conversation,converse):
                 #postion is the postion of the word identified in name 
                 #name_index is the postion of the word identified in w                
                 count,count_max,position,name_index=find_count(name,w,count_max)
+                #if more than 50% of words in a name are Identified, and words Identified are less than max Identified till now, we search for the firm
                 if count/len(name.split())>=0.5 and count>=count_max:
+                    #flag_2 is used to check if We've found any work Starting with a Capital
+                    #flag_3 is used to check if We've reached end of Conversation while adding names to the firm
                     flag_2=0
                     flag_3=0
                     firm=''
+                    #c points to the index of the word after the name
                     for c in range(name_index+len(name.split())-position,len(w)):
                         if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,'):
                             flag_2=1
@@ -525,6 +536,7 @@ def pass_1(names,conversation,converse):
 
 def pass_2(names,conversation,converse,final):
     for name in names:
+        #count_max stores the maximum number of words from a name that are Identified in any paragraph
         count_max=0
         name=remove_last_char_if_colon(name)
         if name not in final.keys() or final[name]=='':
@@ -539,10 +551,14 @@ def pass_2(names,conversation,converse,final):
                     #postion is the postion of the word identified in name 
                     #name_index is the postion of the word identified in w
                     count,count_max,position,name_index=find_count(name,w,count_max)
+                    #if more than 33%% of words in a name are Identified, and words Identified are less than max Identified till now, we search for the firm                   
                     if count/len(name.split())>=0.33 and count>=count_max:
+                        #flag_2 is used to check if We've found any work Starting with a Capital
+                        #flag_3 is used to check if We've reached end of Conversation while adding names to the firm
                         flag_2=0
                         flag_3=0
                         firm=''
+                        #c points to the index of the word after the name
                         for c in range(name_index+len(name.split())-position,len(w)):
                             if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,' and w[c]!='I'):
                                 flag_2=1
@@ -569,6 +585,7 @@ def pass_2(names,conversation,converse,final):
 
 def pass_3(names,conversation_from_beginning,converse,final):
     for name in names:
+        #count_max stores the maximum number of words from a name that are Identified in any paragraph
         count_max=0
         name=remove_last_char_if_colon(name)
         if name not in final.keys() or final[name]=='':
@@ -581,10 +598,14 @@ def pass_3(names,conversation_from_beginning,converse,final):
                     #postion is the postion of the word identified in name 
                     #name_index is the postion of the word identified in w
                     count,count_max,position,name_index=find_count(name,w,count_max)
+                    #if more than 50% of words in a name are Identified, and words Identified are less than max Identified till now, we search for the firm
                     if count/len(name.split())>=0.5 and count>=count_max:
+                        #flag_2 is used to check if We've found any work Starting with a Capital
+                        #flag_3 is used to check if We've reached end of Conversation while adding names to the firm
                         flag_2=0
                         flag_3=0
                         firm=''
+                        #c points to the index of the word after the name
                         for c in range(name_index+len(name.split())-position,len(w)):
                             if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,' and w[c]!='Mr.'):
                                 flag_2=1
