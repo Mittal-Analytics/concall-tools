@@ -344,7 +344,7 @@ def get_lines(doc):
     return lines
 
 #If most of the lines containing names end with ':', This fucntion uses that condition to filter out lines that do not end with ':'
-def check_last_char(names):
+def check_last_char_if_colon(names):
     count=0
     names_temp=[]
     for name in names:
@@ -357,18 +357,19 @@ def check_last_char(names):
         if count/len(names_temp)>0.40:
             if name[-1]==':':
                 names.append(name)
+        #else filter lines that do end with ':', also filtering lines ending with '.' as they don't occur after a name
         elif name[-1]!=':' and name[-1]!='.':
             names.append(name)
     return names
 
 
 def remove_last_char_if_colon(word):
-    if word[-1]==':':
+    if word[-1]==':' and len(word)!=0:
         word=word[0:len(word)-1]
     return word
 
 #below fucntion is to check how many words in the names to be filtered belong to a english dictionary and eliminate accordingly.
-def check_dict(names):
+def check_english_dict(names):
     names_temp=names
     names=[]
     possible_names_in_english_dictionary=['Shah','Moderator','moderator','Raj','Participant']
@@ -401,7 +402,7 @@ def get_speaker_names(doc):
     lines = get_lines(doc)
     char_not_in_names=[',','-','&','?']
     names=[]
-    converse=[]
+    order_of_speakers=[]
     for line in lines:
         is_name=0
         words=line.split()
@@ -418,18 +419,18 @@ def get_speaker_names(doc):
             if is_name==0:
                 if line not in names:
                     names.append(line)
-    names=check_dict(names)
-    names=check_last_char(names)
+    names=check_english_dict(names)
+    names=check_last_char_if_colon(names)
     names=check_repetations(names)
     for line in lines:
         if line in names:
-            converse.append(line)
-    #Converse here has the repeated names of people in the order they speak.
-    return [names,lines,converse]
+            order_of_speakers.append(line)
+    #order_of_speakers here has the repeated names of people in the order they speak.
+    return [names,lines,order_of_speakers]
 
 
 def get_conversation(doc):
-    names,lines,converse=get_speaker_names(doc)
+    names,lines,order_of_speakers=get_speaker_names(doc)
     s=''
     conversation=[]
     for line in lines:
@@ -440,9 +441,7 @@ def get_conversation(doc):
             s=''
     if s!='':
         conversation.append(s)
-    conversation_from_beginning=conversation
-    conversation=conversation[1:len(conversation)]
-    return (conversation,conversation_from_beginning)
+    return (conversation)
 
 
 def modify_str(l):
@@ -487,14 +486,17 @@ def check_if_firm(firm):
         firm=''
     return firm
 
-def pass_1(names,conversation,converse):
+def pass_1(names,conversation,order_of_speakers):
     final={}
+    #first value in conversation contains lines before any speaker starts, hence we filter it out
+    conversation=conversation[1:len(conversation)]
+    words_not_found_as_first_word_of_firm=['Sir,','I','Mr.']
     for name in names:
         name=remove_last_char_if_colon(name)
         #count_max stores the maximum number of words from a name that are Identified in any paragraph
         count_max=0
         for i in range(len(conversation)):
-            if converse[i]=='Moderator:' or converse[i]=='Moderator' or converse[i]=='Operator' or converse[i]=='Operator:':
+            if order_of_speakers[i]=='Moderator:' or order_of_speakers[i]=='Moderator' or order_of_speakers[i]=='Operator' or order_of_speakers[i]=='Operator:':
                 count=0
                 l=conversation[i]
                 #modify_str takes the conversation, makes some changes and returns the words to w
@@ -509,9 +511,9 @@ def pass_1(names,conversation,converse):
                     flag_2=0
                     flag_3=0
                     firm=''
-                    #c points to the index of the word after the name
+                    #c points to the index of the word after the name, it points to name_index(position of word in w)+lenght of name(in term of words)-the postion of the word identified in the name
                     for c in range(name_index+len(name.split())-position,len(w)):
-                        if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,'):
+                        if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c] not in words_not_found_as_first_word_of_firm):
                             flag_2=1
                             b=((w[c][-1]=='.' or w[c][-1]==','))
                             while not b:
@@ -534,15 +536,18 @@ def pass_1(names,conversation,converse):
     return final
 
 
-def pass_2(names,conversation,converse,final):
+def pass_2(names,conversation,order_of_speakers,final):
+    #first value in conversation contains lines before any speaker starts, hence we filter it out
+    conversation=conversation[1:len(conversation)]
+    words_not_found_as_first_word_of_firm=['Sir,','I','Mr.']
     for name in names:
         #count_max stores the maximum number of words from a name that are Identified in any paragraph
         count_max=0
         name=remove_last_char_if_colon(name)
         if name not in final.keys() or final[name]=='':
             for i in range(len(conversation)):
-                converse[i]=remove_last_char_if_colon(converse[i])
-                if converse[i]==name:
+                order_of_speakers[i]=remove_last_char_if_colon(order_of_speakers[i])
+                if order_of_speakers[i]==name:
                     count=0
                     l=conversation[i]
                     l=conversation[i]
@@ -558,9 +563,9 @@ def pass_2(names,conversation,converse,final):
                         flag_2=0
                         flag_3=0
                         firm=''
-                        #c points to the index of the word after the name
+                        #c points to the index of the word after the name, it points to name_index(position of word in w)+lenght of name(in term of words)-the postion of the word identified in the name
                         for c in range(name_index+len(name.split())-position,len(w)):
-                            if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,' and w[c]!='I'):
+                            if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c] not in words_not_found_as_first_word_of_firm):
                                 flag_2=1
                                 b=((w[c][-1]=='.' or w[c][-1]==','))
                                 while not b:
@@ -583,7 +588,8 @@ def pass_2(names,conversation,converse,final):
     return final
 
 
-def pass_3(names,conversation_from_beginning,converse,final):
+def pass_3(names,conversation,order_of_speakers,final):
+    words_not_found_as_first_word_of_firm=['Sir,','I','Mr.']
     for name in names:
         #count_max stores the maximum number of words from a name that are Identified in any paragraph
         count_max=0
@@ -592,7 +598,7 @@ def pass_3(names,conversation_from_beginning,converse,final):
             for i in range(3):
                 if name not in final.keys() or final[name]=='':
                     count=0
-                    l=conversation_from_beginning[i]
+                    l=conversation[i]
                     #modify_str takes the conversation, makes some changes and returns the words to w
                     w=modify_str(l)
                     #postion is the postion of the word identified in name 
@@ -605,9 +611,9 @@ def pass_3(names,conversation_from_beginning,converse,final):
                         flag_2=0
                         flag_3=0
                         firm=''
-                        #c points to the index of the word after the name
+                        #c points to the index of the word after the name, it points to name_index(position of word in w)+lenght of name(in term of words)-the postion of the word identified in the name
                         for c in range(name_index+len(name.split())-position,len(w)):
-                            if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]!='Sir,' and w[c]!='Mr.'):
+                            if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]not in words_not_found_as_first_word_of_firm):
                                 flag_2=1
                                 b=((w[c][-1]=='.' or w[c][-1]==','))
                                 while not b:
@@ -636,15 +642,15 @@ def pass_3(names,conversation_from_beginning,converse,final):
 
 
 def get_speakers_capitals(doc):    
-    names,lines,converse=get_speaker_names(doc)
-    conversation,conversation_from_beginning=get_conversation(doc)
+    names,lines,order_of_speakers=get_speaker_names(doc)
+    conversation=get_conversation(doc)
     final={}
     #pass 1 checks if the moderator announces any names
-    final=pass_1(names,conversation,converse)
+    final=pass_1(names,conversation,order_of_speakers)
     #pass 2 checks if incase moderator has not introduced, if the speaker introduces himself
-    final=pass_2(names,conversation,converse,final)
+    final=pass_2(names,conversation,order_of_speakers,final)
     #for speakers whose firm is still unknown, we check the first 3 conversations to check if they are introduced as management
-    final=pass_3(names,conversation_from_beginning,converse,final)
+    final=pass_3(names,conversation,order_of_speakers,final)
     for name in names:
         name=remove_last_char_if_colon(name)
         if name not in final.keys() or final[name]=='':
