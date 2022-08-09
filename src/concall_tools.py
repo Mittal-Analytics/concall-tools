@@ -2,7 +2,10 @@ import fitz
 import enchant
 
 
-from speakers.extraction import Speaker
+from speakers.extraction import (
+    Speaker,
+    Speaker_with_is_management
+)
 from speakers.extraction import (
     get_speakers_from_text as _get_speakers_from_text,
     get_speakers_in_bold as _get_speakers_in_bold,

@@ -8,6 +8,7 @@ import enchant
 english_dictionary = enchant.Dict("en_US")
 
 Speaker = namedtuple("Speaker", ["name", "firm"])
+Speaker_with_is_management = namedtuple("Speaker", ["name", "firm", "is_management"])
 
 
 def _get_pages(doc):
@@ -447,7 +448,7 @@ def get_conversation(doc):
 # Modify str takes the conversation as variable l, makes some modifications to extract names and speakers and returns the words
 def modify_str(l):
     str = l.replace('.','. ')
-    l = l.replace(',',', ')
+    l = l.replace(',',' , ')
     l = l.replace('from','from ')
     l = l.replace('(','')
     l = l.replace(')','.')
@@ -482,17 +483,20 @@ def check_if_firm(firm):
         for word in firm.split():
             if english_dictionary.check(word):
                 count = count+1
-        if count==len(firm.split()):
+        if count/len(firm.split())>=0.88:
             firm = ''
-    if firm=='Thank you':
+    if firm=='Thank you' or firm=='Sir':
         firm = ''
+    if firm != '':    
+        if firm[len(firm)-1]==' ':
+            firm=firm[0:len(firm)-1]
     return firm
 
 def pass_1(names,conversation,order_of_speakers):
     final = {}
     # First value in conversation contains lines before any speaker starts, hence we filter it out
     conversation = conversation[1:len(conversation)]
-    words_not_found_as_first_word_of_firm = ['Sir,','I','Mr.','Ms.']
+    words_not_found_as_first_word_of_firm = ['Sir,','I','Mr.','Ms.','Sir']
     for name in names:
         name = remove_last_char_if_colon(name)
         # Count_max stores the maximum number of words from a name that are Identified in any paragraph
@@ -544,7 +548,7 @@ def pass_1(names,conversation,order_of_speakers):
 def pass_2(names,conversation,order_of_speakers,final):
     #  First value in conversation contains lines before any speaker starts, hence we filter it out
     conversation = conversation[1:len(conversation)]
-    words_not_found_as_first_word_of_firm = ['Sir,','I','Mr.','Ms.']
+    words_not_found_as_first_word_of_firm = ['Sir,','I','Mr.','Ms.','Sir']
     for name in names:
         # Count_max stores the maximum number of words from a name that are Identified in any paragraph
         count_max = 0
@@ -597,7 +601,7 @@ def pass_2(names,conversation,order_of_speakers,final):
 
 
 def pass_3(names,conversation,order_of_speakers,final):
-    words_not_found_as_first_word_of_firm = ['Sir,','I','Mr.','Ms.']
+    words_not_found_as_first_word_of_firm = ['Sir,','I','Mr.','Ms.','Sir']
     for name in names:
         # Count_max stores the maximum number of words from a name that are Identified in any paragraph
         count_max = 0
@@ -614,7 +618,8 @@ def pass_3(names,conversation,order_of_speakers,final):
                     count,count_max,position,name_index = find_count(name,w,count_max)
                     # If more than 50% of words in a name are Identified,
                     # And words Identified are less than max Identified till now, we search for the firm
-                    if count/len(name.split())>=0.5 and count>=count_max:
+                    #print(name,count,count_max)
+                    if count/len(name.split())>=0.60 and count>=count_max:
                         #flag_2 is used to check if We've found any work Starting with a Capital
                         #flag_3 is used to check if We've reached end of Conversation while adding names to the firm
                         flag_2 = 0
@@ -641,8 +646,6 @@ def pass_3(names,conversation,order_of_speakers,final):
                                     firm = firm+w[c]
                         firm = firm[0:len(firm)-1]
                         firm = check_if_firm(firm)
-                        if len(firm.split())>6:
-                            firm = ''
                         for letter in firm:
                             if letter.isnumeric():
                                 firm = ''
@@ -651,11 +654,40 @@ def pass_3(names,conversation,order_of_speakers,final):
                         final[name] = firm
     return final
 
+def check_if_management(final,is_management,order_of_speakers):
+    keywords_in_management_designations=['Chief','Officer','Manager','Executive','Director','Chairman','Group','Head','CEO','CFO','COO','Secretary','GM','MD','Corporate','Communications','Relation']
+    name_count={}
+    name_order=[]
+    for name in final.keys():
+        name_count[name]=0
+        word_count = 0
+        is_management[name]='No'
+        firm=final[name]
+        if firm!=None:
+            firm=firm.replace('-',' - ')
+            for word in firm.split():
+                if word in keywords_in_management_designations:
+                    word_count = word_count + 1
+            if word_count/len(final[name].split())>=0.25:
+                is_management[name]='Yes'
+            #print(name,word_count,is_management[name])
+    for name in order_of_speakers:
+        name=remove_last_char_if_colon(name)
+        name_count[name] = name_count[name] + 1
+    name_count = dict(sorted(name_count.items(), key=lambda item: item[1], reverse=True))
+    for name in name_count.keys():
+        name_order.append(name)
+    for i in range(5):
+        name=name_order[i]
+        if final[name] == None and name != 'Moderator':
+            is_management[name]='Yes'
+    return is_management
 
 def get_speakers_capitals(doc):    
     names,lines,order_of_speakers = get_speaker_names(doc)
     conversation = get_conversation(doc)
     final = {}
+    is_management = {}
     # Pass 1 checks if the moderator announces any names
     final = pass_1(names,conversation,order_of_speakers)
     # Pass 2 checks if incase moderator has not introduced, if the speaker introduces himself
@@ -666,6 +698,7 @@ def get_speakers_capitals(doc):
         name = remove_last_char_if_colon(name)
         if name not in final.keys() or final[name]=='':
             final[name] = None
+    is_management = check_if_management(final,is_management,order_of_speakers)
     speakers = []
     names_copy = []
     # Names_copy is created so that the order in which speakers speak is mantained in the final tuple
@@ -673,6 +706,6 @@ def get_speakers_capitals(doc):
         name = remove_last_char_if_colon(name)
         names_copy.append(name)
     for name in names_copy:
-        speaker = Speaker(name = name, firm = final[name])
+        speaker = Speaker_with_is_management(name = name, firm = final[name], is_management = is_management[name])
         speakers.append(speaker)
     return speakers
