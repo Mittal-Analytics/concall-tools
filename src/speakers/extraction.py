@@ -3,8 +3,12 @@ from collections import namedtuple
 
 import lxml.html
 import nltk
+import fitz
+import enchant
+english_dictionary = enchant.Dict("en_US")
 
 Speaker = namedtuple("Speaker", ["name", "firm"])
+Speaker_with_is_management = namedtuple("Speaker", ["name", "firm", "is_management"])
 
 
 def _get_pages(doc):
@@ -29,7 +33,7 @@ def _get_main_pages(doc):
     word_counts = [page.word_count for page in pages]
     median = sorted(word_counts)[len(word_counts) // 2]
     # main pages are pages with at-least half as much text
-    main_pages = [page for page in pages if page.word_count > (median / 3)]
+    main_pages = [page for page in pages if page.word_count > (median / 4) and page.number!=0]
     return main_pages
 
 
@@ -328,4 +332,380 @@ def get_speakers_in_bold(doc):
         speaker = Speaker(name=person, firm=speaker_firm.get(fp, None))
         if speaker not in speakers:
             speakers.append(speaker)
+    return speakers
+
+
+def get_lines(doc):
+    doc = fitz.open(doc)
+    pages = _get_main_pages(doc)
+    text = "\n".join([page.text for page in pages])
+    text = text.replace("Pvt.", "Pvt")
+    text = text.replace(":",":\n")
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    return lines
+
+# If most of the lines containing names end with ':', This fucntion uses that condition to filter out lines that do not end with ':'
+def check_if_last_char_colon(names):
+    count = 0
+    names_copy = []
+    for name in names:
+        if name[-1]==':':
+            count = count + 1
+    names_copy = names
+    names = []
+    for name in names_copy:
+        # If more than 40% of lines that could be names end with ':', filter lines that do not end with ':'
+        if count/len(names_copy)>0.40:
+            if name[-1]==':':
+                names.append(name)
+        # Else filter lines that do end with ':', also filtering lines ending with '.' as they don't occur after a name
+        elif name[-1]!=':' and name[-1]!='.':
+            names.append(name)
+    return names
+
+
+def remove_last_char_if_colon(word):
+    if word[-1]==':' and len(word)!=0:
+        word = word[0:len(word)-1]
+    return word
+
+# Below fucntion is to check how many words in the names to be filtered belong to a english dictionary and eliminate accordingly.
+def check_english_dict(names):
+    names_copy = names
+    names = []
+    possible_names_in_english_dictionary = ['Shah','Moderator','moderator','Raj','Participant']
+    names_not_possible=['Kfin']
+    for name in names_copy:
+        count = 0
+        for word in name.split():
+            word = remove_last_char_if_colon(word)
+            if english_dictionary.check(word) and word not in possible_names_in_english_dictionary:
+                count = count+1
+            # Condition added to deal with false positives
+            if name in names_not_possible:
+                count = count+1
+        # Below condtion only accepts names that have less than 50% of the words belonging to a dictionary
+        if count/len(name.split())<=0.50:
+            names.append(name)
+    return names
+
+
+def check_repetations(names):
+    names_copy = names
+    for name_outer in names:
+        for name_inner in names:
+            if name_outer.find(name_inner)!=-1 and len(name_outer)>len(name_inner):
+                names_copy.remove(name_inner)
+    names = names_copy
+    return(names)
+
+
+def get_speaker_names(doc):
+    lines = get_lines(doc)
+    char_not_in_names = [',','-','&','?']
+    names = []
+    order_of_speakers = []
+    for line in lines:
+        is_name = 0
+        words = line.split()
+        if len(words)<=5: 
+            # Below condition eliminates lines that have only 1 word and contain less than four letters
+            if len(words)==1 and len(words[0])<4:
+                is_name = 1
+            for word in words:
+                if not word[0].isupper():
+                    is_name = 1
+                for letter in word:
+                    if letter.isnumeric() or letter in char_not_in_names:
+                        is_name = 1
+            if is_name==0:
+                if line not in names:
+                    names.append(line)
+    names = check_english_dict(names)
+    names = check_if_last_char_colon(names)
+    names = check_repetations(names)
+    for line in lines:
+        if line in names:
+            order_of_speakers.append(line)
+    # Order_of_speakers here has the repeated names of people in the order they speak.
+    return [names,lines,order_of_speakers]
+
+
+def get_conversation(doc):
+    names,lines,_ = get_speaker_names(doc)
+    s = ''
+    conversation = []
+    for line in lines:
+        if line not in names:
+            s = s + line + ' '
+        else:
+            conversation.append(s)
+            s = ''
+    if s != '':
+        conversation.append(s)
+    return (conversation)
+
+# Modify str takes the conversation as variable l, makes some modifications to extract names and speakers and returns the words
+def modify_str(l):
+    str = l.replace('.','. ')
+    l = l.replace(',',' , ')
+    l = l.replace('from','from ')
+    l = l.replace('(','')
+    l = l.replace(')','.')
+    w = l.split()
+    return w
+
+# Function tries to find that paragraph where the full name occurs
+def find_count(name,w,count_max):
+    flag = 0
+    position = 0
+    count = 0
+    name_index = 0
+    for word in name.split():
+        word = remove_last_char_if_colon(word)
+        if word in w:
+            if flag==0:
+                name_index = w.index(word)
+                flag = 1
+            count = count+1
+        elif flag==0:
+            position = position+1
+    if count>count_max:
+        count_max = count
+    return (count,count_max,position,name_index)
+
+
+def check_if_firm(firm):
+    count = 0
+    # If we Identify a firm that has more than 4 words and all of the words belong to a English Dictionary,
+    # We discard it from being a firm
+    if len(firm.split())>4:
+        for word in firm.split():
+            if english_dictionary.check(word):
+                count = count+1
+        if count/len(firm.split())>=0.88:
+            firm = ''
+    if firm=='Thank you' or firm=='Sir':
+        firm = ''
+    if firm != '':    
+        if firm[len(firm)-1]==' ':
+            firm=firm[0:len(firm)-1]
+    return firm
+
+def pass_1(names,conversation,order_of_speakers):
+    final = {}
+    # First value in conversation contains lines before any speaker starts, hence we filter it out
+    conversation = conversation[1:len(conversation)]
+    words_not_found_as_first_word_of_firm = ['Sir,','I','Mr.','Ms.','Sir']
+    for name in names:
+        name = remove_last_char_if_colon(name)
+        # Count_max stores the maximum number of words from a name that are Identified in any paragraph
+        count_max = 0
+        for i in range(len(conversation)):
+            if order_of_speakers[i]=='Moderator:' or order_of_speakers[i]=='Moderator' or order_of_speakers[i]=='Operator' or order_of_speakers[i]=='Operator:':
+                count = 0
+                l = conversation[i]
+                # Modify_str takes the conversation, makes some changes and returns the words to w
+                w = modify_str(l)
+                # Postion is the postion of the word identified in name 
+                # Name_index is the postion of the word identified in w                
+                count,count_max,position,name_index = find_count(name,w,count_max)
+                # If more than 50% of words in a name are Identified,
+                # And words Identified are less than max Identified till now, we search for the firm
+                if count/len(name.split())>=0.5 and count>=count_max:
+                    #flag_2 is used to check if We've found any work Starting with a Capital
+                    #flag_3 is used to check if We've reached end of Conversation while adding names to the firm
+                    flag_2 = 0
+                    flag_3 = 0
+                    firm = ''
+                    # C points to the index of the word after the name, 
+                    # It points to name_index(position of word in w)+lenght of name(in term of words)-the postion 
+                    # Of the word identified in the name
+                    for c in range(name_index+len(name.split())-position,len(w)):
+                        if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c] not in words_not_found_as_first_word_of_firm):
+                            flag_2 = 1
+                            b=((w[c][-1]=='.' or w[c][-1]==','))
+                            while not b:
+                                firm = firm+w[c]+' '
+                                c = c+1
+                                if c==len(w):
+                                    for letter in firm:
+                                        if letter.isnumeric():
+                                            firm = ''
+                                    flag_3 = 1
+                                    break
+                                b = ((w[c][-1]=='.' or w[c][-1]==','))
+                            if flag_3==0:
+                                firm = firm+w[c]
+                    firm = firm[0:len(firm)-1]
+                    firm = check_if_firm(firm)
+                    if name[-1]==':':
+                        name = name[0:len(name)-1]
+                    final[name] = firm
+    return final
+
+
+def pass_2(names,conversation,order_of_speakers,final):
+    #  First value in conversation contains lines before any speaker starts, hence we filter it out
+    conversation = conversation[1:len(conversation)]
+    words_not_found_as_first_word_of_firm = ['Sir,','I','Mr.','Ms.','Sir']
+    for name in names:
+        # Count_max stores the maximum number of words from a name that are Identified in any paragraph
+        count_max = 0
+        name = remove_last_char_if_colon(name)
+        if name not in final.keys() or final[name]=='':
+            for i in range(len(conversation)):
+                order_of_speakers[i] = remove_last_char_if_colon(order_of_speakers[i])
+                if order_of_speakers[i]==name:
+                    count = 0
+                    l = conversation[i]
+                    l = conversation[i]
+                    # Modify_str takes the conversation, makes some changes and returns the words to w
+                    w = modify_str(l)
+                    # Postion is the postion of the word identified in name 
+                    # Name_index is the postion of the word identified in w
+                    count,count_max,position,name_index = find_count(name,w,count_max)
+                    # If more than 33%% of words in a name are Identified, 
+                    # And words Identified are less than max Identified till now, we search for the firm                   
+                    if count/len(name.split())>=0.33 and count>=count_max:
+                        # Flag_2 is used to check if We've found any work Starting with a Capital
+                        # Flag_3 is used to check if We've reached end of Conversation while adding names to the firm
+                        flag_2 = 0
+                        flag_3 = 0
+                        firm = ''
+                        # C points to the index of the word after the name, 
+                        # It points to name_index(position of word in w)+lenght of name(in term of words)-the postion 
+                        # Of the word identified in the name
+                        for c in range(name_index+len(name.split())-position,len(w)):
+                            if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c] not in words_not_found_as_first_word_of_firm):
+                                flag_2 = 1
+                                b=((w[c][-1]=='.' or w[c][-1]==','))
+                                while not b:
+                                    firm = firm+w[c]+' '
+                                    c = c+1
+                                    if c==len(w):
+                                        for letter in firm:
+                                            if letter.isnumeric():
+                                                firm = ''
+                                        flag_3 = 1
+                                        break
+                                    b = ((w[c][-1]=='.' or w[c][-1]==','))
+                                if flag_3==0:
+                                    firm = firm+w[c]
+                        firm = firm[0:len(firm)-1]                
+                        firm = check_if_firm(firm)
+                        if name[-1]==':':
+                            name = name[0:len(name)-1]
+                        final[name] = firm
+    return final
+
+
+def pass_3(names,conversation,order_of_speakers,final):
+    words_not_found_as_first_word_of_firm = ['Sir,','I','Mr.','Ms.','Sir']
+    for name in names:
+        # Count_max stores the maximum number of words from a name that are Identified in any paragraph
+        count_max = 0
+        name = remove_last_char_if_colon(name)
+        if name not in final.keys() or final[name]=='':
+            for i in range(3):
+                if name not in final.keys() or final[name]=='':
+                    count = 0
+                    l = conversation[i]
+                    # Modify_str takes the conversation, makes some changes and returns the words to w
+                    w = modify_str(l)
+                    # Postion is the postion of the word identified in name 
+                    # Name_index is the postion of the word identified in w
+                    count,count_max,position,name_index = find_count(name,w,count_max)
+                    # If more than 50% of words in a name are Identified,
+                    # And words Identified are less than max Identified till now, we search for the firm
+                    #print(name,count,count_max)
+                    if count/len(name.split())>=0.60 and count>=count_max:
+                        #flag_2 is used to check if We've found any work Starting with a Capital
+                        #flag_3 is used to check if We've reached end of Conversation while adding names to the firm
+                        flag_2 = 0
+                        flag_3 = 0
+                        firm = ''
+                        # C points to the index of the word after the name,
+                        # it points to name_index(position of word in w)+lenght of name(in term of words)-the postion
+                        # Of the word identified in the name
+                        for c in range(name_index+len(name.split())-position,len(w)):
+                            if ((w[c][0].isupper() or w[c]=='individual') and flag_2==0 and w[c]not in words_not_found_as_first_word_of_firm):
+                                flag_2 = 1
+                                b = ((w[c][-1]=='.' or w[c][-1]==','))
+                                while not b:
+                                    firm = firm+w[c]+' '
+                                    c = c+1
+                                    if c==len(w):
+                                        for letter in firm:
+                                            if letter.isnumeric():
+                                                firm = ''
+                                        flag_3 = 1
+                                        break
+                                    b = ((w[c][-1]=='.' or w[c][-1]==',' or w[c][-1]==';' or w[c]=='and' or w[c]=='May' or w[c]=='Mr.'))
+                                if flag_3==0 and w[c]!='and' and w[c]!='May' and w[c]!='Mr.':
+                                    firm = firm+w[c]
+                        firm = firm[0:len(firm)-1]
+                        firm = check_if_firm(firm)
+                        for letter in firm:
+                            if letter.isnumeric():
+                                firm = ''
+                        if name[-1]==':':
+                            name = name[0:len(name)-1]
+                        final[name] = firm
+    return final
+
+def check_if_management(final,is_management,order_of_speakers):
+    keywords_in_management_designations=['Chief','Officer','Manager','Executive','Director','Chairman','Group','Head','CEO','CFO','COO','Secretary','GM','MD','Corporate','Communications','Relation']
+    name_count={}
+    name_order=[]
+    for name in final.keys():
+        name_count[name]=0
+        word_count = 0
+        is_management[name]='No'
+        firm=final[name]
+        if firm!=None:
+            firm=firm.replace('-',' - ')
+            for word in firm.split():
+                if word in keywords_in_management_designations:
+                    word_count = word_count + 1
+            if word_count/len(final[name].split())>=0.25:
+                is_management[name]='Yes'
+            #print(name,word_count,is_management[name])
+    for name in order_of_speakers:
+        name=remove_last_char_if_colon(name)
+        name_count[name] = name_count[name] + 1
+    name_count = dict(sorted(name_count.items(), key=lambda item: item[1], reverse=True))
+    for name in name_count.keys():
+        name_order.append(name)
+    for i in range(5):
+        name=name_order[i]
+        if final[name] == None and name != 'Moderator':
+            is_management[name]='Yes'
+    return is_management
+
+def get_speakers_capitals(doc):    
+    names,lines,order_of_speakers = get_speaker_names(doc)
+    conversation = get_conversation(doc)
+    final = {}
+    is_management = {}
+    # Pass 1 checks if the moderator announces any names
+    final = pass_1(names,conversation,order_of_speakers)
+    # Pass 2 checks if incase moderator has not introduced, if the speaker introduces himself
+    final = pass_2(names,conversation,order_of_speakers,final)
+    # For speakers whose firm is still unknown, we check the first 3 conversations to check if they are introduced as management
+    final = pass_3(names,conversation,order_of_speakers,final)
+    for name in names:
+        name = remove_last_char_if_colon(name)
+        if name not in final.keys() or final[name]=='':
+            final[name] = None
+    is_management = check_if_management(final,is_management,order_of_speakers)
+    speakers = []
+    names_copy = []
+    # Names_copy is created so that the order in which speakers speak is mantained in the final tuple
+    for name in names:
+        name = remove_last_char_if_colon(name)
+        names_copy.append(name)
+    for name in names_copy:
+        speaker = Speaker_with_is_management(name = name, firm = final[name], is_management = is_management[name])
+        speakers.append(speaker)
     return speakers
