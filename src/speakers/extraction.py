@@ -437,11 +437,11 @@ def get_conversation(doc):
     conversation = []
     for line in lines:
         if line not in names:
-            s = s+line+' '
+            s = s + line + ' '
         else:
             conversation.append(s)
-            s=''
-    if s!='':
+            s = ''
+    if s != '':
         conversation.append(s)
     return (conversation)
 
